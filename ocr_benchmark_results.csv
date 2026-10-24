@@ -1,0 +1,9 @@
+filename,quality_score_before,quality_score_after,quality_delta,ocr_confidence_before,ocr_confidence_after,ocr_confidence_gain,words_recovered,words_before,words_after,applied_corrections,ocr_engine
+sample_1_clean_invoice.png,89.7,84.7,-5.0,30.6,42.5,11.9,0,82,81,illumination,CV Readability Estimator
+sample_2_skewed_invoice.png,81.9,84.4,2.5,31.9,39.3,7.4,3,80,83,"deskew, illumination",CV Readability Estimator
+sample_3_blurred_contract.png,48.9,64.9,16.0,29.4,52.1,22.7,1,1,2,"illumination, sharpen",CV Readability Estimator
+sample_4_shadowed_invoice.png,78.5,85.5,7.0,55.7,44.1,-11.6,67,15,82,illumination,CV Readability Estimator
+sample_5_noisy_contract.png,67.6,73.3,5.7,70.6,25.1,-45.5,0,61,58,"deskew, illumination, denoise",CV Readability Estimator
+sample_6_severely_degraded_fail.png,54.5,65.5,11.0,82.0,86.2,4.2,4,11,15,"deskew, illumination, denoise, autocrop",CV Readability Estimator
+sample_7_multipage_packet_p1.png,87.6,88.5,0.9,30.8,30.4,-0.4,6,118,124,"deskew, illumination",CV Readability Estimator
+sample_7_multipage_packet_p2.png,54.5,78.6,24.1,24.4,35.1,10.7,0,0,0,"illumination, sharpen",CV Readability Estimator

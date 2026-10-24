@@ -7,10 +7,11 @@ from backend.app.api.alerts import router as alerts_router
 from backend.app.api.analytics import router as analytics_router
 from backend.app.api.documents import router as documents_router
 from backend.app.api.settings import router as settings_router
-from backend.app.database import Base, engine
+from backend.app.database import Base, engine, run_sqlite_migrations
 
-# Ensure database tables exist
+# Ensure database tables exist and apply any column migrations
 Base.metadata.create_all(bind=engine)
+run_sqlite_migrations(engine)
 
 app = FastAPI(
     title="DocuQuality: Document Image Quality Assessment & Auto-Correction API",

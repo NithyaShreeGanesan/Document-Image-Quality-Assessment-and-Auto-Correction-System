@@ -92,7 +92,9 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
 
     base_url = "/api/documents"
     orig_url = f"{base_url}/{doc.id}/download?variant=original"
-    corr_url = f"{base_url}/{doc.id}/download?variant=corrected" if doc.corrected_path else None
+    cnt_b = doc.ocr_word_count_before or 0
+    cnt_a = doc.ocr_word_count_after or 0
+    words_rec = max(0, cnt_a - cnt_b)
 
     return DocumentDetailResponse(
         id=doc.id,
@@ -101,6 +103,7 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
         page_no=doc.page_no,
         batch_id=doc.batch_id,
         status=doc.status,
+        preset=doc.preset or "general",
         created_at=doc.created_at,
         original_url=orig_url,
         corrected_url=corr_url,
@@ -109,8 +112,13 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
         applied_corrections=corrections,
         ocr_confidence_before=doc.ocr_confidence_before,
         ocr_confidence_after=doc.ocr_confidence_after,
+        ocr_word_count_before=cnt_b,
+        ocr_word_count_after=cnt_a,
+        ocr_words_recovered=words_rec,
         ocr_text_before=doc.ocr_text_before,
         ocr_text_after=doc.ocr_text_after,
+        ocr_engine=doc.ocr_engine,
+        ocr_message=doc.ocr_message,
     )
 
 

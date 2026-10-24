@@ -15,15 +15,22 @@ class Document(Base):
     original_path = Column(String(500), nullable=False)
     corrected_path = Column(String(500), nullable=True)
     status = Column(String(30), default="processing")  # processing, pass, needs_correction, fail, error
+    preset = Column(String(50), default="general", nullable=True)
     ocr_confidence_before = Column(Float, nullable=True)
     ocr_confidence_after = Column(Float, nullable=True)
+    ocr_word_count_before = Column(Integer, default=0, nullable=True)
+    ocr_word_count_after = Column(Integer, default=0, nullable=True)
     ocr_text_before = Column(Text, nullable=True)
     ocr_text_after = Column(Text, nullable=True)
+    ocr_engine = Column(String(100), nullable=True)
+    ocr_message = Column(String(500), nullable=True)
+    per_step_scores_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     assessments = relationship("Assessment", back_populates="document", cascade="all, delete-orphan")
     corrections = relationship("Correction", back_populates="document", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="document", cascade="all, delete-orphan")
+    feedback = relationship("Feedback", back_populates="document", cascade="all, delete-orphan")
 
 
 class Assessment(Base):
@@ -98,3 +105,16 @@ class Setting(Base):
     key = Column(String(100), primary_key=True)
     value_json = Column(Text, nullable=False)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    document_id = Column(String(36), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    rating = Column(String(20), nullable=False)  # 'thumbs_up' or 'thumbs_down'
+    comment = Column(Text, nullable=True)
+    disliked_steps_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    document = relationship("Document", back_populates="feedback")

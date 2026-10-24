@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+node_modules/
+dist/
+.env
+backend/.env
+*.sqlite3
+docuquality.db
+backend/uploads/originals/
+backend/uploads/corrected/

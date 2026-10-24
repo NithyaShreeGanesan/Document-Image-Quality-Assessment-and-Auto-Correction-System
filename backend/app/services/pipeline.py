@@ -56,7 +56,7 @@ def process_single_image(
 
         # 1. Initial Assessment
         before_assess = assess_document_image(image, config)
-        ocr_conf_before, ocr_text_before = evaluate_ocr(image)
+        ocr_res_before = evaluate_ocr(image)
 
         # Remove any existing assessments / corrections if reprocessing
         db.query(Assessment).filter(Assessment.document_id == doc_id).delete()
@@ -110,7 +110,7 @@ def process_single_image(
 
         # Save corrected image file
         corrected_path = save_corrected_image(corrected_img, doc_id, filename)
-        ocr_conf_after, ocr_text_after = evaluate_ocr(corrected_img)
+        ocr_res_after = evaluate_ocr(corrected_img)
 
         # Save Applied Corrections in DB
         for corr in applied_corrections:
@@ -155,10 +155,14 @@ def process_single_image(
         # Update Document record
         doc.corrected_path = corrected_path
         doc.status = after_assess["classification"].lower().replace(" ", "_")
-        doc.ocr_confidence_before = ocr_conf_before
-        doc.ocr_confidence_after = ocr_conf_after
-        doc.ocr_text_before = ocr_text_before
-        doc.ocr_text_after = ocr_text_after
+        doc.ocr_confidence_before = ocr_res_before.get("confidence")
+        doc.ocr_confidence_after = ocr_res_after.get("confidence")
+        doc.ocr_word_count_before = ocr_res_before.get("word_count", 0)
+        doc.ocr_word_count_after = ocr_res_after.get("word_count", 0)
+        doc.ocr_text_before = ocr_res_before.get("text", "")
+        doc.ocr_text_after = ocr_res_after.get("text", "")
+        doc.ocr_engine = ocr_res_after.get("engine") or ocr_res_before.get("engine")
+        doc.ocr_message = ocr_res_after.get("message") or ocr_res_before.get("message")
 
         db.commit()
         db.refresh(doc)

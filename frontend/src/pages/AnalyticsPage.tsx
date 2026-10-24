@@ -89,7 +89,7 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* Total Documents */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex items-center justify-between mb-2">
@@ -162,6 +162,27 @@ export const AnalyticsPage: React.FC = () => {
               +{(summary?.avg_improvement ?? 0).toFixed(1)}
             </span>
             <span className="text-xs text-slate-400">pts average lift</span>
+          </div>
+        </div>
+
+        {/* OCR Confidence Gain KPI Card */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/10 shadow-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              Avg OCR Confidence Gain
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-display font-black text-3xl text-indigo-600 dark:text-indigo-400">
+              {((summary?.avg_ocr_confidence_gain ?? 0) >= 0 ? '+' : '')}
+              {(summary?.avg_ocr_confidence_gain ?? 0).toFixed(1)}%
+            </span>
+            <span className="text-xs text-slate-400">
+              +{summary?.total_words_recovered ?? 0} words
+            </span>
           </div>
         </div>
       </div>
@@ -296,6 +317,64 @@ export const AnalyticsPage: React.FC = () => {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* OCR Confidence Trajectory Chart */}
+      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <h3 className="font-display font-bold text-base text-slate-900 dark:text-white">
+              OCR Recognition Confidence: Before vs. After
+            </h3>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Evolution of mean word-level confidence and character legibility post auto-restoration
+          </p>
+        </div>
+
+        <div className="w-full h-64">
+          {trends.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-xs text-slate-400">
+              No historical OCR trend data recorded yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0f172a',
+                    borderColor: '#334155',
+                    color: '#f8fafc',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                  formatter={(val: any) => [`${val}%`, 'Mean Confidence']}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                <Line
+                  type="monotone"
+                  dataKey="avg_ocr_confidence_before"
+                  name="OCR Conf (Before Restoration)"
+                  stroke="#F43F5E"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="avg_ocr_confidence_after"
+                  name="OCR Conf (After Restoration)"
+                  stroke="#6366F1"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { RadarMetrics } from '../components/RadarMetrics';
 import { DefectBreakdown } from '../components/DefectBreakdown';
 import { CorrectionsList } from '../components/CorrectionsList';
 import { ReprocessModal } from '../components/ReprocessModal';
+import { OcrReadinessCard } from '../components/OcrReadinessCard';
 import {
   Download,
   Sliders,
@@ -291,6 +292,19 @@ export const ResultPage: React.FC<ResultPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* OCR Accuracy & Extraction Proof Card */}
+      <OcrReadinessCard
+        confidenceBefore={doc.ocr_confidence_before ?? 0}
+        confidenceAfter={doc.ocr_confidence_after ?? 0}
+        wordsBefore={doc.ocr_word_count_before ?? 0}
+        wordsAfter={doc.ocr_word_count_after ?? 0}
+        wordsRecovered={doc.ocr_words_recovered ?? 0}
+        textBefore={doc.ocr_text_before ?? ''}
+        textAfter={doc.ocr_text_after ?? ''}
+        engine={doc.ocr_engine ?? 'Tesseract OCR'}
+        message={doc.ocr_message ?? undefined}
+      />
 
       {/* Bottom Row: Defect Diagnostics & Corrections Applied */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

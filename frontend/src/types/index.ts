@@ -56,13 +56,21 @@ export interface DocumentDetail {
   created_at: string;
   original_url: string;
   corrected_url?: string;
+  preset?: string;
   before_assessment?: AssessmentResponse;
   after_assessment?: AssessmentResponse;
   applied_corrections: CorrectionItem[];
   ocr_confidence_before?: number;
   ocr_confidence_after?: number;
+  ocr_word_count_before?: number;
+  ocr_word_count_after?: number;
+  ocr_words_recovered?: number;
   ocr_text_before?: string;
   ocr_text_after?: string;
+  ocr_engine?: string;
+  ocr_message?: string;
+  rescan_tips?: string[];
+  feedback?: { rating: string; comment?: string };
 }
 
 export interface DocumentSummary {
@@ -108,6 +116,10 @@ export interface AnalyticsSummary {
   avg_score_before: number;
   avg_score_after: number;
   avg_improvement: number;
+  avg_ocr_confidence_before?: number;
+  avg_ocr_confidence_after?: number;
+  avg_ocr_confidence_gain?: number;
+  total_words_recovered?: number;
   most_common_defects: {
     name: string;
     count: number;
@@ -120,6 +132,8 @@ export interface AnalyticsTrendPoint {
   count: number;
   avg_score_before: number;
   avg_score_after: number;
+  avg_ocr_confidence_before?: number;
+  avg_ocr_confidence_after?: number;
   pass_count: number;
   needs_correction_count: number;
   fail_count: number;
