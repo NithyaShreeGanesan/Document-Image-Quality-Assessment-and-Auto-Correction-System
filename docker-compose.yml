@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:80
+      - DATABASE_URL=sqlite:///./docuquality.db
+      - ENABLE_OCR_TESSERACT=true
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/docuquality.db:/app/docuquality.db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

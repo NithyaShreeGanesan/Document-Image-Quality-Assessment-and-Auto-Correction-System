@@ -1,0 +1,50 @@
+weights:
+  blur: 0.25
+  skew: 0.15
+  brightness: 0.15
+  contrast: 0.15
+  noise: 0.15
+  resolution: 0.15
+
+thresholds:
+  blur:
+    laplacian_good: 120.0
+    laplacian_critical: 40.0
+    tenengrad_good: 600.0
+  skew:
+    angle_good: 1.0
+    angle_critical: 5.0
+    max_angle_limit: 45.0
+  brightness:
+    min_mean: 80.0
+    max_mean: 248.0
+    ideal_mean: 215.0
+    shadow_block_diff_limit: 35.0
+  contrast:
+    std_good: 45.0
+    std_critical: 20.0
+    percentile_range_good: 140.0
+  noise:
+    sigma_good: 5.0
+    sigma_critical: 18.0
+  resolution:
+    min_dpi: 150
+    ideal_dpi: 300
+    assumed_width_inches: 8.27
+
+classification:
+  pass_score: 75.0
+  min_subscore_pass: 50.0
+  fail_score: 45.0
+
+corrections:
+  deskew_enabled: true
+  illumination_enabled: true
+  denoise_enabled: true
+  sharpen_enabled: true
+  autocrop_enabled: true
+  ocr_binarization: false
+  denoise_strength_factor: 1.2
+  clahe_clip_limit: 2.0
+  clahe_tile_grid_size: 8
+  sharpen_strength_factor: 1.5
