@@ -129,7 +129,32 @@ export const ReprocessModal: React.FC<ReprocessModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Preset Selector */}
+          <div className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 flex items-center justify-between gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-900 dark:text-white block">
+                Target Preset:
+              </label>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Override metric weights & thresholds for this document
+              </p>
+            </div>
+            <select
+              value={options.preset || 'general'}
+              onChange={(e) => setOptions((prev) => ({ ...prev, preset: e.target.value }))}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="general">📄 General</option>
+              <option value="invoice">🧾 Invoice</option>
+              <option value="receipt">🧾 Receipt</option>
+              <option value="id_card">🪪 ID Card</option>
+              <option value="book_page">📖 Book Page</option>
+              <option value="handwritten_note">✍️ Handwritten</option>
+            </select>
+          </div>
+
           <div className="space-y-3">
+
             {steps.map((step) => {
               const Icon = step.icon;
               const isEnabled = !!options[step.key as keyof ReprocessOptions];

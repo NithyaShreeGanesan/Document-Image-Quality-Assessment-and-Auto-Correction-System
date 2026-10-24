@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Layers,
   Zap,
+  Sliders,
+  ChevronDown,
 } from 'lucide-react';
 import { documentApi } from '../api/client';
 
@@ -21,10 +23,12 @@ interface UploadPageProps {
 
 export const UploadPage: React.FC<UploadPageProps> = ({ onUploadSuccess }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<string>('auto');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<number>(1); // 1: Upload, 2: Assess, 3: Correct, 4: Deliver
+
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setErrorMessage(null);
@@ -78,9 +82,10 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onUploadSuccess }) => {
       // Transition to Step 3: Correct
       setTimeout(() => setActiveStep(3), 1200);
 
-      const result = await documentApi.upload(selectedFiles, (pct) => {
+      const result = await documentApi.upload(selectedFiles, selectedPreset, (pct) => {
         setUploadProgress(Math.min(90, Math.max(20, pct)));
       });
+
 
       // Step 4: Deliver
       setActiveStep(4);
@@ -166,8 +171,42 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onUploadSuccess }) => {
         </div>
       </div>
 
+      {/* Preset Selector Card */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <label className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-indigo-500" />
+            Document Type Preset:
+          </label>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Tailors metric weights, thresholds, and correction chains for specific document characteristics.
+          </p>
+        </div>
+
+        <div className="relative min-w-[260px]">
+          <select
+            value={selectedPreset}
+            onChange={(e) => setSelectedPreset(e.target.value)}
+            disabled={isUploading}
+            className="w-full appearance-none px-4 py-2.5 pr-10 rounded-xl text-xs sm:text-sm font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            <option value="auto">⚡ Auto-Detect (Recommended)</option>
+            <option value="general">📄 General Document</option>
+            <option value="invoice">🧾 Invoice & Billing Statement</option>
+            <option value="receipt">🧾 Receipt (Thermal / POS)</option>
+            <option value="id_card">🪪 ID Card / Passport / License</option>
+            <option value="book_page">📖 Book Page / Bound Volume</option>
+            <option value="handwritten_note">✍️ Handwritten Note / Form</option>
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+
       {/* Dropzone Upload Area */}
       <div
+
         {...getRootProps()}
         className={`relative rounded-3xl border-2 border-dashed p-8 sm:p-12 text-center transition-all cursor-pointer ${
           isDragActive

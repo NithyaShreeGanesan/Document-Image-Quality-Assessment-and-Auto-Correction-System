@@ -107,6 +107,7 @@ class PaginatedDocumentsResponse(BaseModel):
 
 
 class ReprocessRequest(BaseModel):
+    preset: Optional[str] = None
     deskew: bool = True
     illumination: bool = True
     denoise: bool = True
@@ -118,6 +119,7 @@ class ReprocessRequest(BaseModel):
     force_illumination: Optional[bool] = False
     force_denoise: Optional[bool] = False
     force_sharpen: Optional[bool] = False
+
 
 
 class AlertResponse(BaseModel):

@@ -5,6 +5,7 @@ import {
   AnalyticsTrendPoint,
   DocumentDetail,
   PaginatedDocuments,
+  PresetItem,
   ReprocessOptions,
   SettingsData,
 } from '../types';
@@ -14,13 +15,16 @@ const api = axios.create({
   timeout: 60000,
 });
 
+
 export const documentApi = {
   upload: async (
     files: File[],
+    preset: string = 'auto',
     onProgress?: (percent: number) => void
   ): Promise<{ batch_id: string; document_ids: string[]; count: number }> => {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
+    formData.append('preset', preset);
 
     const response = await api.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -33,6 +37,7 @@ export const documentApi = {
     });
     return response.data;
   },
+
 
   get: async (id: string): Promise<DocumentDetail> => {
     const response = await api.get<DocumentDetail>(`/documents/${id}`);
@@ -126,6 +131,20 @@ export const settingsApi = {
     const response = await api.put('/settings', data);
     return response.data;
   },
+
+  getPresets: async (): Promise<PresetItem[]> => {
+    const response = await api.get<PresetItem[]>('/settings/presets');
+    return response.data;
+  },
+
+  updatePreset: async (
+    presetId: string,
+    data: Partial<PresetItem>
+  ): Promise<{ message: string; preset: PresetItem }> => {
+    const response = await api.put(`/settings/presets/${presetId}`, data);
+    return response.data;
+  },
 };
+
 
 export default api;

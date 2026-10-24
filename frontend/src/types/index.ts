@@ -217,7 +217,36 @@ export interface SettingsData {
   };
 }
 
+export interface PresetItem {
+  id: string;
+  label: string;
+  description: string;
+  icon?: string;
+  weights: {
+    blur: number;
+    skew: number;
+    brightness: number;
+    contrast: number;
+    noise: number;
+    resolution: number;
+  };
+  classification: {
+    pass_score: number;
+    min_subscore_pass: number;
+    fail_score: number;
+  };
+  corrections: {
+    deskew_enabled: boolean;
+    illumination_enabled: boolean;
+    denoise_enabled: boolean;
+    sharpen_enabled: boolean;
+    autocrop_enabled: boolean;
+    ocr_binarization: boolean;
+  };
+}
+
 export interface ReprocessOptions {
+  preset?: string;
   deskew: boolean;
   illumination: boolean;
   denoise: boolean;
@@ -230,3 +259,4 @@ export interface ReprocessOptions {
   force_denoise?: boolean;
   force_sharpen?: boolean;
 }
+

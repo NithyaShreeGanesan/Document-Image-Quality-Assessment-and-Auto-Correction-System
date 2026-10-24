@@ -150,6 +150,7 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
 @router.post("/upload")
 async def upload_documents(
     files: List[UploadFile] = File(...),
+    preset: Optional[str] = Form("auto"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
@@ -162,6 +163,7 @@ async def upload_documents(
 
     batch_id = str(uuid.uuid4())
     created_doc_ids: List[str] = []
+
 
     for upload_file in files:
         ext = Path(upload_file.filename).suffix.lower()
@@ -181,7 +183,7 @@ async def upload_documents(
         # Process file synchronously or via pipeline
         # Processing synchronously ensures immediate readiness; for batches, it processes each sequentially
         try:
-            ids = process_upload_file(db, content, upload_file.filename, batch_id=batch_id)
+            ids = process_upload_file(db, content, upload_file.filename, batch_id=batch_id, preset=preset)
             created_doc_ids.extend(ids)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to process '{upload_file.filename}': {str(e)}")
@@ -418,6 +420,7 @@ def reprocess_document(
         page_no=doc.page_no,
         batch_id=doc.batch_id,
         custom_options=custom_options,
+        preset=req.preset or doc.preset or "general",
     )
 
     return _doc_to_detail(updated_doc)

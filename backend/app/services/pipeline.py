@@ -11,6 +11,7 @@ from backend.app.models import Alert, Assessment, Correction, Document
 from backend.app.services.assessment import assess_document_image
 from backend.app.services.correction import auto_correct_document
 from backend.app.services.ocr_service import evaluate_ocr
+from backend.app.services.presets import apply_preset_to_config, detect_document_preset
 from backend.app.services.storage import (
     create_corrected_pdf_from_images,
     extract_pages_from_pdf,
@@ -29,10 +30,11 @@ def process_single_image(
     page_no: int = 1,
     batch_id: Optional[str] = None,
     custom_options: Optional[Dict[str, Any]] = None,
+    preset: Optional[str] = "auto",
 ) -> Document:
     """
     Executes full quality pipeline on a single image file:
-    Assess -> Alert (if Fail) -> Auto-Correct -> Assess -> Deliver
+    Detect/Apply Preset -> Assess -> Alert (if Fail) -> Auto-Correct -> Assess -> Deliver
     """
     config = load_config()
 
@@ -46,6 +48,7 @@ def process_single_image(
             batch_id=batch_id,
             original_path=image_path,
             status="processing",
+            preset=preset or "general",
         )
         db.add(doc)
         db.commit()
@@ -54,9 +57,18 @@ def process_single_image(
     try:
         image = load_image_from_file(image_path)
 
+        # Resolve Document Preset
+        active_preset = preset or doc.preset or "auto"
+        if active_preset == "auto":
+            active_preset = detect_document_preset(image)
+
+        active_preset, config = apply_preset_to_config(active_preset, config)
+        doc.preset = active_preset
+
         # 1. Initial Assessment
         before_assess = assess_document_image(image, config)
         ocr_res_before = evaluate_ocr(image)
+
 
         # Remove any existing assessments / corrections if reprocessing
         db.query(Assessment).filter(Assessment.document_id == doc_id).delete()
@@ -195,6 +207,7 @@ def process_upload_file(
     file_bytes: bytes,
     filename: str,
     batch_id: Optional[str] = None,
+    preset: Optional[str] = "auto",
 ) -> List[str]:
     """
     Handles uploaded file (single image or multi-page PDF).
@@ -222,6 +235,7 @@ def process_upload_file(
                 file_type="pdf_page",
                 page_no=page_no,
                 batch_id=common_batch,
+                preset=preset,
             )
             doc_ids.append(page_doc_id)
             if doc.corrected_path:
@@ -244,7 +258,9 @@ def process_upload_file(
             file_type=file_type,
             page_no=1,
             batch_id=batch_id,
+            preset=preset,
         )
         doc_ids.append(doc_id)
 
     return doc_ids
+
