@@ -347,6 +347,28 @@ def auto_correct_document(
 
     curr_img = image.copy()
     applied_corrections: List[Dict[str, Any]] = []
+    current_score = float(assessment.get("overall_score", 0.0))
+    last_assessment = None
+
+    # Helper to evaluate step score delta
+    def _record_step(name: str, order: int, info: Dict[str, Any], defect: str, severity: str):
+        nonlocal current_score, last_assessment
+        step_assess = assess_document_image(curr_img, config)
+        step_post = float(step_assess.get("overall_score", 0.0))
+        delta = round(step_post - current_score, 1)
+        applied_corrections.append({
+            "step_name": name,
+            "order": order,
+            "params": info,
+            "description": info.get("description", ""),
+            "pre_score": round(current_score, 1),
+            "post_score": round(step_post, 1),
+            "delta": delta,
+            "defect_addressed": defect,
+            "defect_severity": severity,
+        })
+        current_score = step_post
+        last_assessment = step_assess
 
     # 0. Auto-Orientation (rotate 90, 180, 270 deg before deskewing)
     orient_data = assessment.get("orientation", {})
@@ -355,12 +377,13 @@ def auto_correct_document(
     if orient_enabled and rot_deg in (90, 180, 270):
         curr_img, info = auto_orient_document(curr_img, rot_deg)
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "auto_orient",
-                "order": 0,
-                "params": info,
-                "description": info["description"],
-            })
+            _record_step(
+                "auto_orient",
+                0,
+                info,
+                f"Page Inversion / {rot_deg}° Orientation",
+                "critical",
+            )
             # Re-estimate skew on upright image for fine-tuning
             from backend.app.services.assessment import compute_skew_metric
             gray_upright = cv2.cvtColor(curr_img, cv2.COLOR_BGR2GRAY) if len(curr_img.shape) == 3 else curr_img
@@ -381,12 +404,13 @@ def auto_correct_document(
     if skew_needed:
         curr_img, info = deskew_image(curr_img, skew_angle)
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "deskew",
-                "order": 1,
-                "params": info,
-                "description": info["description"],
-            })
+            _record_step(
+                "deskew",
+                1,
+                info,
+                f"Skew Alignment ({skew_angle:+.2f}°)",
+                skew_data.get("status", "warning"),
+            )
 
     # 2. Illumination, glare, & exposure
     bright_data = assessment.get("brightness", {})
@@ -410,12 +434,16 @@ def auto_correct_document(
             glare_pct=glare_pct,
         )
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "illumination",
-                "order": 2,
-                "params": info,
-                "description": info["description"],
-            })
+            if glare_pct >= 0.5:
+                defect_desc = f"Glare & Specular Highlight ({glare_pct:.1f}%)"
+            elif bright_data.get("block_spread", 0.0) > 25.0:
+                defect_desc = f"Shadows & Uneven Lighting (Spread: {bright_data.get('block_spread', 0):.1f})"
+            elif contrast_data.get("status") in ["warning", "critical"]:
+                defect_desc = "Low Dynamic Contrast Range"
+            else:
+                defect_desc = "Non-Uniform Document Illumination"
+            sev = bright_data.get("status") if bright_data.get("status") != "good" else contrast_data.get("status", "warning")
+            _record_step("illumination", 2, info, defect_desc, sev)
 
     # 3. Denoise
     noise_data = assessment.get("noise", {})
@@ -428,12 +456,13 @@ def auto_correct_document(
     if denoise_needed:
         curr_img, info = denoise_document(curr_img, noise_sigma)
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "denoise",
-                "order": 3,
-                "params": info,
-                "description": info["description"],
-            })
+            _record_step(
+                "denoise",
+                3,
+                info,
+                f"Sensor Noise / Grain (Sigma: {noise_sigma:.1f})",
+                noise_data.get("status", "warning"),
+            )
 
     # 4. Sharpen
     blur_data = assessment.get("blur", {})
@@ -446,37 +475,40 @@ def auto_correct_document(
     if sharpen_needed:
         curr_img, info = sharpen_document(curr_img, blur_var)
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "sharpen",
-                "order": 4,
-                "params": info,
-                "description": info["description"],
-            })
+            _record_step(
+                "sharpen",
+                4,
+                info,
+                f"Blur & Soft Character Edges (Var: {blur_var:.1f})",
+                blur_data.get("status", "warning"),
+            )
 
     # 5. Auto-crop
     if crop_enabled:
         curr_img, info = autocrop_document(curr_img)
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "autocrop",
-                "order": 5,
-                "params": info,
-                "description": info["description"],
-            })
+            _record_step(
+                "autocrop",
+                5,
+                info,
+                "Extraneous Dark Margins & Border Noise",
+                "warning",
+            )
 
     # 6. OCR-optimized Binarization
     if binarize_enabled:
         curr_img, info = binarize_document(curr_img)
         if info.get("applied"):
-            applied_corrections.append({
-                "step_name": "binarization",
-                "order": 6,
-                "params": info,
-                "description": info["description"],
-            })
+            _record_step(
+                "binarization",
+                6,
+                info,
+                "Low-Contrast Background / Faint Characters",
+                "warning",
+            )
 
-    # Re-run assessment to compute after score
-    after_assessment = assess_document_image(curr_img, config)
+    # Use last step assessment or assess if no steps applied
+    after_assessment = last_assessment if last_assessment is not None else assess_document_image(curr_img, config)
     before_score = assessment.get("overall_score", 0.0)
     after_score = after_assessment.get("overall_score", 0.0)
     after_assessment["improvement_delta"] = round(after_score - before_score, 1)

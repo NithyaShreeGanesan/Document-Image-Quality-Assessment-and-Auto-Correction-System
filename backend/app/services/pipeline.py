@@ -190,6 +190,21 @@ def process_single_image(
         doc.ocr_engine = ocr_res_after.get("engine") or ocr_res_before.get("engine")
         doc.ocr_message = ocr_res_after.get("message") or ocr_res_before.get("message")
 
+        # Save per-step explainability progression
+        per_step_list = [
+            {
+                "step_name": corr["step_name"],
+                "order": corr["order"],
+                "pre_score": corr.get("pre_score", before_assess["overall_score"]),
+                "post_score": corr.get("post_score", after_assess["overall_score"]),
+                "delta": corr.get("delta", 0.0),
+                "defect_addressed": corr.get("defect_addressed", ""),
+                "description": corr.get("description", ""),
+            }
+            for corr in applied_corrections
+        ]
+        doc.per_step_scores_json = json.dumps(per_step_list)
+
         db.commit()
         db.refresh(doc)
         return doc

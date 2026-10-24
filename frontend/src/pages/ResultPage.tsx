@@ -5,7 +5,7 @@ import { MetricGauge } from '../components/MetricGauge';
 import { ImageSlider } from '../components/ImageSlider';
 import { RadarMetrics } from '../components/RadarMetrics';
 import { DefectBreakdown } from '../components/DefectBreakdown';
-import { CorrectionsList } from '../components/CorrectionsList';
+import { ExplainabilityTimeline } from '../components/ExplainabilityTimeline';
 import { ReprocessModal } from '../components/ReprocessModal';
 import { OcrReadinessCard } from '../components/OcrReadinessCard';
 import { RescanGuidanceCard } from '../components/RescanGuidanceCard';
@@ -336,10 +336,10 @@ export const ResultPage: React.FC<ResultPageProps> = ({
         message={doc.ocr_message ?? undefined}
       />
 
-      {/* Bottom Row: Defect Diagnostics & Corrections Applied */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Bottom Row: Defect Diagnostics & What We Fixed & Why Timeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Defect Diagnostics Breakdown */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs lg:col-span-1">
           {doc.before_assessment?.defects ? (
             <DefectBreakdown
               defects={doc.before_assessment.defects}
@@ -350,9 +350,14 @@ export const ResultPage: React.FC<ResultPageProps> = ({
           )}
         </div>
 
-        {/* Applied Corrections List */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <CorrectionsList corrections={doc.applied_corrections} />
+        {/* Explainability Timeline & Waterfall Score Progression */}
+        <div className="lg:col-span-2">
+          <ExplainabilityTimeline
+            corrections={doc.applied_corrections}
+            perStepScores={doc.per_step_scores}
+            initialScore={doc.before_assessment?.overall_score ?? 50}
+            finalScore={doc.after_assessment?.overall_score ?? 80}
+          />
         </div>
       </div>
 
