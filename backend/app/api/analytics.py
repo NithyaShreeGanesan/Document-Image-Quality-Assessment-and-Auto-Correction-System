@@ -7,8 +7,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Assessment, Document
-from backend.app.schemas import AnalyticsSummaryResponse, AnalyticsTrendPoint
+from backend.app.models import Assessment, Document, Feedback
+from backend.app.schemas import AnalyticsSummaryResponse, AnalyticsTrendPoint, UserSatisfactionResponse
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -170,3 +170,72 @@ def get_analytics_trends(days: int = 14, db: Session = Depends(get_db)):
         )
 
     return trend_points
+
+
+@router.get("/feedback", response_model=UserSatisfactionResponse)
+def get_feedback_analytics(db: Session = Depends(get_db)):
+    """
+    Returns aggregate user satisfaction metrics:
+    - thumbs_up count & percentage
+    - thumbs_down count & percentage
+    - satisfaction rate
+    - most frequently disliked correction steps
+    - recent feedback list
+    """
+    all_fb = db.query(Feedback).order_by(Feedback.created_at.desc()).all()
+    total = len(all_fb)
+    if total == 0:
+        return UserSatisfactionResponse(
+            total_feedback=0,
+            thumbs_up_count=0,
+            thumbs_down_count=0,
+            satisfaction_rate=0.0,
+            most_disliked_steps=[],
+            recent_feedback=[],
+        )
+
+    up_count = sum(1 for f in all_fb if f.rating == "thumbs_up")
+    down_count = sum(1 for f in all_fb if f.rating == "thumbs_down")
+    satisfaction_rate = round((up_count / total) * 100.0, 1) if total > 0 else 0.0
+
+    step_counter = Counter()
+    for f in all_fb:
+        if f.disliked_steps_json:
+            try:
+                steps = json.loads(f.disliked_steps_json)
+                for s in steps:
+                    step_counter[s] += 1
+            except Exception:
+                pass
+
+    most_disliked = [
+        {"step": step, "count": count, "percentage": round((count / max(1, down_count)) * 100.0, 1)}
+        for step, count in step_counter.most_common()
+    ]
+
+    recent = []
+    for f in all_fb[:10]:
+        disliked = []
+        if f.disliked_steps_json:
+            try:
+                disliked = json.loads(f.disliked_steps_json)
+            except Exception:
+                pass
+        recent.append({
+            "id": f.id,
+            "document_id": f.document_id,
+            "rating": f.rating,
+            "comment": f.comment,
+            "disliked_steps": disliked,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        })
+
+    return UserSatisfactionResponse(
+        total_feedback=total,
+        thumbs_up_count=up_count,
+        thumbs_down_count=down_count,
+        satisfaction_rate=satisfaction_rate,
+        most_disliked_steps=most_disliked,
+        recent_feedback=recent,
+    )
+

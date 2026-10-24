@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PresetItem, SettingsData } from '../types';
+import { PresetItem, SettingSuggestion, SettingsData } from '../types';
 import { settingsApi } from '../api/client';
 import {
   Settings,
@@ -14,12 +14,18 @@ import {
   ShieldAlert,
   Layers,
   FileText,
+  Sparkles,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [presets, setPresets] = useState<PresetItem[]>([]);
   const [activePresetId, setActivePresetId] = useState<string>('invoice');
+  const [suggestions, setSuggestions] = useState<SettingSuggestion[]>([]);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [appliedMap, setAppliedMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [savingPreset, setSavingPreset] = useState<boolean>(false);
@@ -30,12 +36,14 @@ export const SettingsPage: React.FC = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const [data, presetsData] = await Promise.all([
+      const [data, presetsData, suggestionsData] = await Promise.all([
         settingsApi.get(),
         settingsApi.getPresets(),
+        settingsApi.getSuggestions(),
       ]);
       setSettings(data);
       setPresets(presetsData);
+      setSuggestions(suggestionsData);
     } catch (err: any) {
       console.error(err);
       setError('Failed to load settings.');
@@ -47,6 +55,36 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  const handleApplySuggestion = async (sugg: SettingSuggestion) => {
+    setApplyingId(sugg.id);
+    setError(null);
+    try {
+      await settingsApi.applySuggestion({
+        suggestion_id: sugg.id,
+        parameters: sugg.parameters,
+        target_type: sugg.target_type,
+        preset_id: sugg.preset_id,
+      });
+      setAppliedMap((prev) => ({ ...prev, [sugg.id]: true }));
+      // Refresh configurations to show applied values
+      const [data, presetsData, suggestionsData] = await Promise.all([
+        settingsApi.get(),
+        settingsApi.getPresets(),
+        settingsApi.getSuggestions(),
+      ]);
+      setSettings(data);
+      setPresets(presetsData);
+      setSuggestions(suggestionsData);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to apply suggestion.');
+    } finally {
+      setApplyingId(null);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +179,113 @@ export const SettingsPage: React.FC = () => {
         <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-rose-600" />
           {error}
+        </div>
+      )}
+
+      {/* Section: Adaptive Feedback-Driven Suggestions */}
+      {suggestions.length > 0 && (
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/70 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/30 border border-indigo-200/80 dark:border-indigo-900/50 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  Adaptive Parameter Suggestions
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 font-bold">
+                    Feedback Driven
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Automated calibrations synthesized from operator ratings, defect statistics, and failed scans
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {suggestions.map((sugg) => {
+              const isApplied = appliedMap[sugg.id];
+              const isApplying = applyingId === sugg.id;
+              return (
+                <div
+                  key={sugg.id}
+                  className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                    isApplied
+                      ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-white/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 hover:border-indigo-300 dark:hover:border-indigo-700'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase font-mono">
+                        {sugg.target_type === 'preset' ? `Preset • ${sugg.preset_id}` : `Config • ${sugg.category}`}
+                      </span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase font-mono ${
+                          sugg.severity === 'recommended'
+                            ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                            : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                        }`}
+                      >
+                        {sugg.severity}
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {sugg.title}
+                    </h4>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {sugg.description}
+                    </p>
+
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-1 flex items-start gap-1">
+                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">Impact:</span>
+                      <span>{sugg.impact}</span>
+                    </div>
+
+                    {sugg.reason && (
+                      <div className="text-[10px] px-2 py-1 rounded bg-slate-100 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-mono">
+                        Source: {sugg.reason}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-700/60 mt-3">
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {Object.keys(sugg.parameters).length} parameter tweak(s)
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isApplied || isApplying}
+                      onClick={() => handleApplySuggestion(sugg)}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                        isApplied
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 cursor-default'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm disabled:opacity-50'
+                      }`}
+                    >
+                      {isApplied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" /> Applied
+                        </>
+                      ) : isApplying ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying...
+                        </>
+                      ) : (
+                        <>
+                          Apply Suggestion <ArrowRight className="w-3 h-3" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

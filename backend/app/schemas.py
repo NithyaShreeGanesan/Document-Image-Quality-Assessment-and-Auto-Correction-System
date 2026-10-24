@@ -79,6 +79,8 @@ class DocumentDetailResponse(BaseModel):
     ocr_text_after: Optional[str] = None
     ocr_engine: Optional[str] = None
     ocr_message: Optional[str] = None
+    feedback: Optional["FeedbackResponse"] = None
+    per_step_scores: List["PerStepScoreItem"] = []
 
 
 
@@ -165,3 +167,60 @@ class SettingsUpdateRequest(BaseModel):
     thresholds: Optional[Dict[str, Any]] = None
     classification: Optional[Dict[str, float]] = None
     corrections: Optional[Dict[str, Any]] = None
+
+
+class FeedbackSubmitRequest(BaseModel):
+    rating: str
+    comment: Optional[str] = None
+    disliked_steps: Optional[List[str]] = []
+
+
+class FeedbackResponse(BaseModel):
+    id: int
+    document_id: str
+    rating: str
+    comment: Optional[str] = None
+    disliked_steps: List[str] = []
+    created_at: datetime.datetime
+
+
+class PerStepScoreItem(BaseModel):
+    step_name: str
+    order: int
+    pre_score: float
+    post_score: float
+    delta: float
+    defect_addressed: Optional[str] = None
+    description: Optional[str] = None
+
+
+class UserSatisfactionResponse(BaseModel):
+    total_feedback: int
+    thumbs_up_count: int
+    thumbs_down_count: int
+    satisfaction_rate: float
+    most_disliked_steps: List[Dict[str, Any]]
+    recent_feedback: List[Dict[str, Any]] = []
+
+
+class SuggestionItem(BaseModel):
+    id: str
+    title: str
+    category: str
+    severity: str
+    impact: str
+    description: str
+    target_type: str
+    parameters: Dict[str, Any]
+    reason: str
+    preset_id: Optional[str] = None
+
+
+class ApplySuggestionRequest(BaseModel):
+    suggestion_id: str
+    parameters: Dict[str, Any]
+    target_type: str = "config"
+    preset_id: Optional[str] = None
+
+
+DocumentDetailResponse.model_rebuild()

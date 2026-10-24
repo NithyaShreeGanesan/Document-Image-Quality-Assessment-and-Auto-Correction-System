@@ -87,7 +87,8 @@ export interface DocumentDetail {
   ocr_engine?: string;
   ocr_message?: string;
   rescan_tips?: string[];
-  feedback?: { rating: string; comment?: string };
+  feedback?: FeedbackItem;
+  per_step_scores?: PerStepScoreItem[];
 }
 
 
@@ -259,4 +260,46 @@ export interface ReprocessOptions {
   force_denoise?: boolean;
   force_sharpen?: boolean;
 }
+
+export interface FeedbackItem {
+  id?: number;
+  document_id?: string;
+  rating: 'thumbs_up' | 'thumbs_down';
+  comment?: string;
+  disliked_steps?: string[];
+  created_at?: string;
+}
+
+export interface PerStepScoreItem {
+  step_name: string;
+  order: number;
+  pre_score: number;
+  post_score: number;
+  delta: number;
+  defect_addressed?: string;
+  description?: string;
+}
+
+export interface UserSatisfactionData {
+  total_feedback: number;
+  thumbs_up_count: number;
+  thumbs_down_count: number;
+  satisfaction_rate: number;
+  most_disliked_steps: { step: string; count: number; percentage: number }[];
+  recent_feedback?: FeedbackItem[];
+}
+
+export interface SettingSuggestion {
+  id: string;
+  title: string;
+  category: string;
+  severity: string;
+  impact: string;
+  description: string;
+  target_type: string;
+  parameters: Record<string, any>;
+  reason: string;
+  preset_id?: string;
+}
+
 

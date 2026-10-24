@@ -4,10 +4,13 @@ import {
   AnalyticsSummary,
   AnalyticsTrendPoint,
   DocumentDetail,
+  FeedbackItem,
   PaginatedDocuments,
   PresetItem,
   ReprocessOptions,
+  SettingSuggestion,
   SettingsData,
+  UserSatisfactionData,
 } from '../types';
 
 const api = axios.create({
@@ -95,6 +98,19 @@ export const documentApi = {
     const response = await api.post(`/documents/samples/process/${filename}`);
     return response.data;
   },
+
+  submitFeedback: async (
+    id: string,
+    feedback: { rating: 'thumbs_up' | 'thumbs_down'; comment?: string; disliked_steps?: string[] }
+  ): Promise<FeedbackItem> => {
+    const response = await api.post<FeedbackItem>(`/documents/${id}/feedback`, feedback);
+    return response.data;
+  },
+
+  getFeedback: async (id: string): Promise<FeedbackItem | null> => {
+    const response = await api.get<FeedbackItem | null>(`/documents/${id}/feedback`);
+    return response.data;
+  },
 };
 
 export const analyticsApi = {
@@ -107,6 +123,11 @@ export const analyticsApi = {
     const response = await api.get<AnalyticsTrendPoint[]>('/analytics/trends', {
       params: { days },
     });
+    return response.data;
+  },
+
+  getFeedback: async (): Promise<UserSatisfactionData> => {
+    const response = await api.get<UserSatisfactionData>('/analytics/feedback');
     return response.data;
   },
 };
@@ -151,6 +172,21 @@ export const settingsApi = {
     data: Partial<PresetItem>
   ): Promise<{ message: string; preset: PresetItem }> => {
     const response = await api.put(`/settings/presets/${presetId}`, data);
+    return response.data;
+  },
+
+  getSuggestions: async (): Promise<SettingSuggestion[]> => {
+    const response = await api.get<SettingSuggestion[]>('/settings/suggestions');
+    return response.data;
+  },
+
+  applySuggestion: async (data: {
+    suggestion_id: string;
+    parameters: Record<string, any>;
+    target_type?: string;
+    preset_id?: string;
+  }): Promise<{ status: string; message?: string; suggestion_id: string }> => {
+    const response = await api.post('/settings/suggestions/apply', data);
     return response.data;
   },
 };

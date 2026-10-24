@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AnalyticsSummary, AnalyticsTrendPoint } from '../types';
+import { AnalyticsSummary, AnalyticsTrendPoint, UserSatisfactionData } from '../types';
 import { analyticsApi } from '../api/client';
 import {
   BarChart3,
@@ -11,6 +11,9 @@ import {
   PieChart as PieIcon,
   Loader2,
   Layers,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -31,18 +34,21 @@ import {
 export const AnalyticsPage: React.FC = () => {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [trends, setTrends] = useState<AnalyticsTrendPoint[]>([]);
+  const [satisfaction, setSatisfaction] = useState<UserSatisfactionData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        const [sumData, trendData] = await Promise.all([
+        const [sumData, trendData, satData] = await Promise.all([
           analyticsApi.getSummary(),
           analyticsApi.getTrends(14),
+          analyticsApi.getFeedback(),
         ]);
         setSummary(sumData);
         setTrends(trendData);
+        setSatisfaction(satData);
       } catch (err) {
         console.error(err);
       } finally {
@@ -427,6 +433,182 @@ export const AnalyticsPage: React.FC = () => {
             No defect breakdown recorded yet. Upload sample documents to populate frequency metrics.
           </p>
         )}
+      </div>
+
+      {/* User Satisfaction & Feedback Loop Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Rating Breakdown & Satisfaction Score */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <ThumbsUp className="w-4 h-4 text-emerald-500" />
+                User Satisfaction Score
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                End-user evaluation of auto-correction and OCR readability
+              </p>
+            </div>
+            {satisfaction && satisfaction.total_feedback > 0 && (
+              <span className={`text-xs px-2.5 py-1 rounded-full font-bold font-mono ${
+                satisfaction.satisfaction_rate >= 80
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                  : satisfaction.satisfaction_rate >= 60
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+              }`}>
+                {satisfaction.satisfaction_rate}% Satisfaction
+              </span>
+            )}
+          </div>
+
+          {satisfaction && satisfaction.total_feedback > 0 ? (
+            <>
+              {/* Ratio Progress Bar */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    {satisfaction.thumbs_up_count} Thumbs Up ({Math.round((satisfaction.thumbs_up_count / satisfaction.total_feedback) * 100)}%)
+                  </span>
+                  <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                    {satisfaction.thumbs_down_count} Thumbs Down ({Math.round((satisfaction.thumbs_down_count / satisfaction.total_feedback) * 100)}%)
+                  </span>
+                </div>
+                <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+                  <div
+                    style={{
+                      width: `${(satisfaction.thumbs_up_count / satisfaction.total_feedback) * 100}%`,
+                    }}
+                    className="bg-emerald-500 h-full transition-all duration-500"
+                  />
+                  <div
+                    style={{
+                      width: `${(satisfaction.thumbs_down_count / satisfaction.total_feedback) * 100}%`,
+                    }}
+                    className="bg-rose-500 h-full transition-all duration-500"
+                  />
+                </div>
+              </div>
+
+              {/* Stat Counters */}
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-center">
+                  <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+                    {satisfaction.total_feedback}
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Total Ratings</p>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 text-center">
+                  <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    {satisfaction.thumbs_up_count}
+                  </span>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300">Approvals</p>
+                </div>
+                <div className="p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 text-center">
+                  <span className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400">
+                    {satisfaction.thumbs_down_count}
+                  </span>
+                  <p className="text-[11px] text-rose-700 dark:text-rose-300">Tune Requests</p>
+                </div>
+              </div>
+
+              {/* Recent User Quotes */}
+              {satisfaction.recent_feedback && satisfaction.recent_feedback.some(f => f.comment) && (
+                <div className="pt-2">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">
+                    Recent Operator Comments:
+                  </span>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {satisfaction.recent_feedback
+                      .filter(f => f.comment)
+                      .slice(0, 4)
+                      .map((fb, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs flex items-start gap-2"
+                        >
+                          {fb.rating === 'thumbs_up' ? (
+                            <ThumbsUp className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          ) : (
+                            <ThumbsDown className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1">
+                            <span className="text-slate-800 dark:text-slate-200">
+                              "{fb.comment}"
+                            </span>
+                            {fb.disliked_steps && fb.disliked_steps.length > 0 && (
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                {fb.disliked_steps.map((st) => (
+                                  <span
+                                    key={st}
+                                    className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 uppercase font-mono"
+                                  >
+                                    {st}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-slate-400 py-6 text-center">
+              No feedback collected yet. Rate corrections on the Result page to see satisfaction ratings here.
+            </p>
+          )}
+        </div>
+
+        {/* Most Disliked Steps Breakdown */}
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <div>
+            <h3 className="font-display font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              Most Frequently Disliked Correction Steps
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Identifies auto-correction steps that cause over-processing or artifacts
+            </p>
+          </div>
+
+          {satisfaction?.most_disliked_steps && satisfaction.most_disliked_steps.length > 0 ? (
+            <div className="space-y-3 pt-1">
+              {satisfaction.most_disliked_steps.map((item) => (
+                <div key={item.step} className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
+                      {item.step.replace('_', ' ')}
+                    </span>
+                    <span className="font-mono text-rose-600 dark:text-rose-400 font-semibold">
+                      {item.count} flag{item.count > 1 ? 's' : ''} ({item.percentage}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      style={{ width: `${Math.min(100, item.percentage)}%` }}
+                      className="bg-rose-500 h-full rounded-full transition-all duration-300"
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="p-3 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-700 dark:text-indigo-300">
+                💡 <b>Adaptive Suggestion Engine:</b> Go to <b>Settings &rarr; Suggestions</b> to review automatic parameter calibrations based on these user flags.
+              </div>
+            </div>
+          ) : (
+            <div className="h-48 flex flex-col items-center justify-center text-center p-4">
+              <Sparkles className="w-8 h-8 text-indigo-400 mb-2 opacity-60" />
+              <p className="text-xs text-slate-400">
+                No negative correction steps flagged. When users thumbs-down a specific step, frequency tallies will appear here.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

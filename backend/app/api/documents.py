@@ -3,20 +3,23 @@ import os
 import uuid
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Alert, Assessment, Correction, Document
+from backend.app.models import Alert, Assessment, Correction, Document, Feedback
 from backend.app.schemas import (
     AssessmentResponse,
     CorrectionItem,
     DefectItem,
     DocumentDetailResponse,
     DocumentSummaryResponse,
+    FeedbackResponse,
+    FeedbackSubmitRequest,
     PaginatedDocumentsResponse,
+    PerStepScoreItem,
     ReprocessRequest,
 )
 from backend.app.services.pipeline import process_single_image, process_upload_file
@@ -105,6 +108,7 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
 
     base_url = "/api/documents"
     orig_url = f"{base_url}/{doc.id}/download?variant=original"
+    corr_url = f"{base_url}/{doc.id}/download?variant=corrected" if doc.corrected_path else None
     cnt_b = doc.ocr_word_count_before or 0
     cnt_a = doc.ocr_word_count_after or 0
     words_rec = max(0, cnt_a - cnt_b)
@@ -118,6 +122,32 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
                 rescan_guide = json.loads(before_rec.rescan_guidance_json)
             except Exception:
                 pass
+
+    fb_item = None
+    if getattr(doc, "feedback", None) and len(doc.feedback) > 0:
+        f = doc.feedback[-1]
+        disliked = []
+        if f.disliked_steps_json:
+            try:
+                disliked = json.loads(f.disliked_steps_json)
+            except Exception:
+                pass
+        fb_item = FeedbackResponse(
+            id=f.id,
+            document_id=f.document_id,
+            rating=f.rating,
+            comment=f.comment,
+            disliked_steps=disliked,
+            created_at=f.created_at,
+        )
+
+    step_scores = []
+    if getattr(doc, "per_step_scores_json", None):
+        try:
+            scores_raw = json.loads(doc.per_step_scores_json)
+            step_scores = [PerStepScoreItem(**s) for s in scores_raw]
+        except Exception:
+            pass
 
     return DocumentDetailResponse(
         id=doc.id,
@@ -144,6 +174,8 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
         ocr_text_after=doc.ocr_text_after,
         ocr_engine=doc.ocr_engine,
         ocr_message=doc.ocr_message,
+        feedback=fb_item,
+        per_step_scores=step_scores,
     )
 
 
@@ -478,3 +510,81 @@ def delete_document(doc_id: str, db: Session = Depends(get_db)):
     db.delete(doc)
     db.commit()
     return {"message": "Document deleted successfully", "id": doc_id}
+
+
+@router.post("/{doc_id}/feedback", response_model=FeedbackResponse)
+def submit_document_feedback(doc_id: str, req: FeedbackSubmitRequest, db: Session = Depends(get_db)):
+    """
+    Submits or updates user rating (thumbs_up / thumbs_down), optional comments,
+    and specific disliked correction steps for a processed document.
+    """
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if req.rating not in ("thumbs_up", "thumbs_down"):
+        raise HTTPException(status_code=400, detail="Rating must be 'thumbs_up' or 'thumbs_down'")
+
+    fb = db.query(Feedback).filter(Feedback.document_id == doc_id).first()
+    disliked_json = json.dumps(req.disliked_steps or [])
+
+    if not fb:
+        fb = Feedback(
+            document_id=doc_id,
+            rating=req.rating,
+            comment=req.comment.strip() if req.comment else None,
+            disliked_steps_json=disliked_json,
+        )
+        db.add(fb)
+    else:
+        fb.rating = req.rating
+        fb.comment = req.comment.strip() if req.comment else None
+        fb.disliked_steps_json = disliked_json
+
+    db.commit()
+    db.refresh(fb)
+
+    disliked = []
+    if fb.disliked_steps_json:
+        try:
+            disliked = json.loads(fb.disliked_steps_json)
+        except Exception:
+            pass
+
+    return FeedbackResponse(
+        id=fb.id,
+        document_id=fb.document_id,
+        rating=fb.rating,
+        comment=fb.comment,
+        disliked_steps=disliked,
+        created_at=fb.created_at,
+    )
+
+
+@router.get("/{doc_id}/feedback", response_model=Optional[FeedbackResponse])
+def get_document_feedback(doc_id: str, db: Session = Depends(get_db)):
+    """Retrieves existing feedback submitted for a specific document."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    fb = db.query(Feedback).filter(Feedback.document_id == doc_id).first()
+    if not fb:
+        return None
+
+    disliked = []
+    if fb.disliked_steps_json:
+        try:
+            disliked = json.loads(fb.disliked_steps_json)
+        except Exception:
+            pass
+
+    return FeedbackResponse(
+        id=fb.id,
+        document_id=fb.document_id,
+        rating=fb.rating,
+        comment=fb.comment,
+        disliked_steps=disliked,
+        created_at=fb.created_at,
+    )
+

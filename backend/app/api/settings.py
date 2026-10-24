@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException
 
 from sqlalchemy.orm import Session
@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from backend.app.config import load_config, save_config
 from backend.app.database import get_db
 from backend.app.models import Setting
-from backend.app.schemas import SettingsUpdateRequest
+from backend.app.schemas import ApplySuggestionRequest, SettingsUpdateRequest, SuggestionItem
+from backend.app.services.suggestions import apply_suggestion, generate_setting_suggestions
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -119,4 +120,32 @@ def _upsert_db_setting(db: Session, key: str, value: Any):
         db.add(s)
     else:
         s.value_json = json.dumps(value)
+
+
+@router.get("/suggestions", response_model=List[SuggestionItem])
+def get_adaptive_suggestions(db: Session = Depends(get_db)):
+    """
+    Returns automated parameter recommendations and calibrations based on
+    analyzing user ratings, negative feedback comments, and document failure rates.
+    """
+    return generate_setting_suggestions(db)
+
+
+@router.post("/suggestions/apply")
+def apply_adaptive_suggestion(req: ApplySuggestionRequest, db: Session = Depends(get_db)):
+    """
+    Applies a recommended calibration parameter set to config or document preset.
+    """
+    try:
+        res = apply_suggestion(
+            suggestion_id=req.suggestion_id,
+            parameters=req.parameters,
+            target_type=req.target_type,
+            preset_id=req.preset_id,
+            db=db,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 

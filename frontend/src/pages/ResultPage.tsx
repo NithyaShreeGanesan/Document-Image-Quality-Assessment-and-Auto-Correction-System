@@ -9,6 +9,7 @@ import { CorrectionsList } from '../components/CorrectionsList';
 import { ReprocessModal } from '../components/ReprocessModal';
 import { OcrReadinessCard } from '../components/OcrReadinessCard';
 import { RescanGuidanceCard } from '../components/RescanGuidanceCard';
+import { FeedbackWidget } from '../components/FeedbackWidget';
 import {
   Download,
   Sliders,
@@ -354,6 +355,16 @@ export const ResultPage: React.FC<ResultPageProps> = ({
           <CorrectionsList corrections={doc.applied_corrections} />
         </div>
       </div>
+
+      {/* User Quality Feedback & Correction Rating Loop */}
+      <FeedbackWidget
+        documentId={doc.id}
+        appliedSteps={doc.applied_corrections.map((c) => c.step_name)}
+        initialFeedback={doc.feedback}
+        onFeedbackSubmitted={(fb) => {
+          setDoc((prev) => (prev ? { ...prev, feedback: fb } : null));
+        }}
+      />
 
       {/* Reprocess Fine-Tuning Modal */}
       <ReprocessModal
