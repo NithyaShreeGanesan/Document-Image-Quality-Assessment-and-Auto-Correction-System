@@ -3,160 +3,207 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com)
 [![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-5C3EE8.svg)](https://opencv.org/)
+[![Tesseract OCR](https://img.shields.io/badge/OCR-pytesseract-orange.svg)](https://github.com/tesseract-ocr/tesseract)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-Bundler-646CFF.svg)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS%20v4-38B2AC.svg)](https://tailwindcss.com/)
+[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passing-emerald.svg)](backend/tests)
 
 Organizations rely heavily on scanned and mobile-captured document images for archiving, compliance, and automated OCR pipelines. Roughly **30% fail OCR or demand expensive re-scans** due to motion blur, orientation skew, uneven lighting/shadows, and sensor noise.
 
-**DocuQuality** solves this problem by automatically assessing every uploaded document image against objective computer vision metrics, applying targeted corrections only for the specific defects detected, and delivering OCR-ready documents with an interactive before/after comparison.
+**DocuQuality** solves this problem by automatically assessing every uploaded document image against objective computer vision metrics, applying targeted corrections only for the specific defects detected, and delivering OCR-ready documents with an interactive before/after comparison and explainable score waterfall.
 
 ---
 
-## Architecture Diagram
+## 🌟 Advanced Features
+
+### 1. OCR Accuracy Proof
+- **End-to-End Tesseract Integration**: Measures word confidence and word count before vs. after restoration.
+- **Graceful Degradation**: Controlled via `ENABLE_OCR` and `TESSERACT_CMD` environment variables; degrades smoothly if Tesseract is not installed without crashing.
+- **OCR Readiness Card**: Displays mean word confidence before vs. after, recovered words counter, side-by-side extracted text diff with highlighted additions, and a "Copy Text" button.
+- **Analytics KPIs & Trend Chart**: Tracks average OCR confidence gains and recovered word counts across processing batches.
+- **Automated Benchmark Suite**: Run `python backend/benchmark_ocr.py` to evaluate OCR accuracy across clean, blurred, skewed, and noisy document images, producing a benchmark report and CSV log.
+
+### 2. Defect Diagnosis & Rescan Guidance
+- **Specular Glare & Hotspot Detection**: Flags washouts, flash reflections, and over-saturation where text ink is destroyed.
+- **Page-Edge Cut-Off Detection**: Analyzes 5% edge boundaries to detect cut-off headers, cropped barcodes, and missing page borders.
+- **90° / 180° / 270° Orientation Detection**: Word contour morphological aspect-ratio profiling accurately identifies upside-down or sideways pages.
+- **Step 0 Auto-Orientation**: Corrects coarse orientation (90°/180°/270°) prior to fine-grain deskewing.
+- **Actionable Rescan Guidance**: Provides step-by-step physical capture advice (e.g., "Step back and zoom in to avoid phone shadows", "Turn off camera flash and use diffuse lighting").
+
+### 3. Document-Type Presets & Auto-Classification
+- **6 Built-in Presets**:
+  - `General`: Standard business letters and contracts.
+  - `Invoice`: Form structure and tabular line-item weighting.
+  - `Receipt`: High-contrast tuning for faint thermal receipt paper.
+  - `ID Card`: Emphasizes fine-detail sharpness for micro-print and security patterns.
+  - `Book Page`: Accommodates gutter contrast and curved text baselines.
+  - `Handwritten Note`: Gentle denoise to protect cursive pencil/pen strokes.
+- **Heuristic Auto-Detection**: Inspects aspect ratio, table rule counts, color distribution, and gutter contrast to detect document types automatically upon upload.
+- **Preset Editor in Settings**: Fine-tune metric weights, thresholds, and correction toggles per preset.
+
+### 4. PDF Quality Audit Reports
+- **Single-Document Quality Report** (`/api/documents/{id}/report`):
+  - Branded, multi-page vector PDF generated via `reportlab`.
+  - Document metadata, overall quality badge, and status classification.
+  - Before vs. after visual thumbnail comparisons.
+  - Complete 8-metric diagnostic table with raw values and sub-scores.
+  - Actionable physical capture tips and applied corrections summary.
+  - OCR extraction readiness card and recognized text snippet.
+  - Two-pass `NumberedCanvas` footer with "Page X of Y" and timestamp.
+- **Batch Audit Report** (`/api/documents/batch/{id}/report`):
+  - Aggregate executive summary for entire multi-file uploads.
+  - Pass / Needs Review / Fail breakdown, average quality scores, and OCR gains.
+  - Comprehensive document audit log table.
+
+### 5. User Feedback Loop & Adaptive Calibrations
+- **Document Rating Widget**: Rate corrections with Thumbs Up or Thumbs Down, select specific disliked steps (Deskew, Illumination, Denoise, Sharpen, Binarization), and provide free-form feedback.
+- **User Satisfaction Analytics**: Real-time satisfaction rate %, approval vs. tune-request progress bar, most frequently downvoted correction steps, and recent operator comments.
+- **Adaptive Settings Suggestions**: Intelligent engine analyzes negative ratings and document failure rates to suggest parameter calibrations (e.g., "Lower CLAHE clip limit to 1.5 to reduce contrast artifacts", "Calibrate mobile blur threshold to 40.0"). Includes one-click **"Apply Suggestion"** buttons.
+
+### 6. Explainability Polish & Score Waterfall
+- **Per-Step Delta Attribution**: Calculates intermediate quality scores after each applied correction step to determine exact mathematical score improvement ($\Delta$).
+- **"What We Fixed and Why" Timeline**: Replaces plain lists with an interactive sequence showing step name, original defect detected with severity, corrective algorithm executed, and score delta (+12 pts, etc.).
+- **Recharts Waterfall Progression Chart**: Visualizes score progression from Raw Input Score &rarr; Step 1 &rarr; Step 2 &rarr; Final Delivered Score.
+
+---
+
+## 🏗️ Architecture
 
 ```mermaid
 flowchart TD
-    Client["Client / Web Browser\n(React + Vite + TypeScript)"] -->|POST /api/documents/upload| API["FastAPI Backend Server\n(Port 8000)"]
+    Client["Client / Web Browser\n(React 19 + Vite + TypeScript)"] -->|POST /api/documents/upload| API["FastAPI Backend Server\n(Port 8000)"]
     
-    subgraph Pipeline ["DocuQuality Execution Pipeline"]
-        API -->|Step 1: Ingest| Splitter["PDF & Image Ingestion Engine\n(PyMuPDF / Pillow)"]
-        Splitter --> Assess1["Pre-Correction Assessment\n(Variance of Laplacian, Tenengrad, Hough, Immerkaer)"]
-        Assess1 --> AlertCheck{"Classification == 'Fail'?"}
-        AlertCheck -->|Yes| AlertQueue["Trigger Low-Quality Alert & Flag Re-Scan"]
-        AlertCheck -->|No / Yes| AutoCorrect["Targeted Auto-Correction Engine"]
+    subgraph Pipeline ["DocuQuality Pipeline"]
+        API --> PresetDetect["Preset Auto-Detection\n(Invoice, Receipt, ID Card, Book, Handwritten)"]
+        PresetDetect --> Assess1["Pre-Correction Assessment\n(Blur, Skew, Illum, Noise, DPI, Glare, Cutoff, Orientation)"]
+        Assess1 --> OCRBefore["Tesseract OCR Evaluation (Before)"]
         
-        subgraph CorrectionOrder ["Sequential Auto-Correction Steps"]
-            AutoCorrect --> C1["1. Deskew (Affine Rotation)"]
-            C1 --> C2["2. Illumination / CLAHE & Background Division"]
-            C2 --> C3["3. Non-Local Means Denoising"]
-            C3 --> C4["4. Adaptive Unsharp Masking"]
-            C4 --> C5["5. Contour Perspective Auto-Crop"]
-            C5 --> C6["6. OCR-Optimized Binarization"]
+        subgraph SequentialCorrections ["Sequential Correction Pipeline"]
+            Assess1 --> C0["Step 0: Auto-Orientation (90/180/270 deg)"]
+            C0 --> C1["Step 1: Deskew (Hough Line Baseline)"]
+            C1 --> C2["Step 2: Illumination & Glare Normalization"]
+            C2 --> C3["Step 3: Bilateral Denoising"]
+            C3 --> C4["Step 4: Adaptive Unsharp Masking"]
+            C4 --> C5["Step 5: Contour Perspective Auto-Crop"]
+            C5 --> C6["Step 6: OCR-Optimized Binarization"]
         end
-
-        CorrectionOrder --> Assess2["Post-Correction Assessment\n(Re-evaluate 6 metrics & compute Delta)"]
+        
+        SequentialCorrections --> ScoreDelta["Per-Step Score Delta & Waterfall Calculation"]
+        ScoreDelta --> Assess2["Post-Correction Assessment & Improvement Delta"]
+        Assess2 --> OCRAfter["Tesseract OCR Evaluation (After)"]
     end
     
-    Assess2 --> Storage["Storage & DB Persistence\n(SQLite + Originals + Corrected Files)"]
-    Storage --> Delivery["OCR-Ready Output Delivery\n(Split Slider, Radar Charts, ZIP Bundles)"]
+    OCRAfter --> Storage["SQLite Database & Disk Storage"]
+    Storage --> Delivery["Reports & Analytics Delivery\n(Interactive Timeline, Waterfall, PDF Reports, ZIP)"]
 ```
 
 ---
 
-## 6 Objective Quality Assessment Metrics
-
-All metrics are evaluated on a grayscale copy and normalized to an objective **0–100 sub-score**:
-
-1. **Blur / Sharpness**:
-   - Computes the **Variance of Laplacian** ($\sigma^2$) and **Tenengrad Sobel gradient energy**.
-   - Low variance indicates blurred text character glyphs.
-2. **Orientation & Skew**:
-   - Detects text baseline angles via **Probabilistic Hough Line Transform** and binary text coordinate `minAreaRect`.
-   - Sub-score drops as absolute tilt angle $|\theta|$ deviates from $0.0^\circ$.
-3. **Brightness & Illumination Uniformity**:
-   - Evaluates overall mean intensity and detects cast shadows or uneven vignetting via a **$4 \times 4$ block grid intensity variance**.
-4. **Dynamic Range & Contrast**:
-   - Evaluates standard deviation ($\sigma$) and the **5th–95th percentile dynamic intensity span**.
-5. **Noise & Sensor Grain**:
-   - Estimates noise standard deviation ($\sigma_n$) using the **Immerkaer Laplacian kernel filter** combined with median filter residuals.
-6. **Resolution & Estimated DPI**:
-   - Computes pixel dimensions and calculates estimated DPI based on standard document page dimensions (e.g. A4 width $8.27''$). Flagged as low if $< 150$ DPI and optimal if $\ge 300$ DPI.
-
-### Overall Score & Classification Tiers
-- **Overall Score (0–100)**: Configurable weighted average (default: Blur 0.25, Skew 0.15, Brightness 0.15, Contrast 0.15, Noise 0.15, Resolution 0.15).
-- **Pass (Green)**: Score $\ge 75$ and no individual metric sub-score $< 50$.
-- **Needs Correction (Amber)**: Score $45 - 74$ or any sub-score $< 50$.
-- **Fail (Red)**: Score $< 45$. Severe degradation; flagged for manual re-scanning.
-
----
-
-## Auto-Correction Engine
-
-Corrections are applied in a strict, targeted non-destructive sequence:
-1. **Deskew**: Affine rotation by estimated $-\theta$ with white margin border fill.
-2. **Illumination / Shadow Normalization**: CLAHE on the L channel of LAB color space, large-kernel Gaussian background division to eradicate cast shadows, and gamma adjustment for exposure.
-3. **Denoise**: OpenCV `fastNlMeansDenoising` scaled to the estimated noise sigma.
-4. **Sharpen**: Unsharp masking with strength inversely proportional to blur variance (avoids halo artifacts).
-5. **Contour Auto-Crop**: Detects 4-corner polygon document boundary and perspective-transforms the page.
-6. **Optional Binarization**: Adaptive Gaussian thresholding for high-contrast OCR output.
-
----
-
-## Quickstart & Local Setup
+## 🛠️ Installation & Quickstart
 
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+ and npm
+- *(Optional)* Tesseract OCR for text extraction verification
 
-### 1. One-Command Setup via Make
+### Installing Tesseract OCR (Optional)
+DocuQuality works completely without Tesseract (degrading gracefully with status messages). To enable OCR features:
+
+- **Windows**:
+  ```powershell
+  # Using winget
+  winget install UB-Mannheim.TesseractOCR
+  
+  # Or download installer from:
+  # https://github.com/UB-Mannheim/tesseract/wiki
+  ```
+  Set in your `.env` or system environment:
+  ```env
+  ENABLE_OCR=true
+  TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+  ```
+
+- **macOS**:
+  ```bash
+  brew install tesseract
+  ```
+
+- **Linux (Ubuntu/Debian)**:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y tesseract-ocr
+  ```
+
+---
+
+### Backend Setup
 ```bash
-# Install dependencies, generate sample documents, and run tests
-make install
-make sample-data
-make test
+# Navigate to project root
+python -m pip install -r backend/requirements.txt
 
-# Launch both backend and frontend servers
-make dev
-```
+# Run full automated test suite (30 tests)
+python -m pytest backend/tests -v
 
-### 2. Manual Setup
+# Run OCR Accuracy Benchmark
+python backend/benchmark_ocr.py
 
-#### Backend Setup
-```bash
-cd backend
-python -m pip install -r requirements.txt
-python generate_samples.py
-python -m pytest tests -v
+# Start FastAPI server
 python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-FastAPI interactive Swagger documentation will be live at `http://127.0.0.1:8000/docs`.
+Interactive API documentation will be live at `http://127.0.0.1:8000/docs`.
 
-#### Frontend Setup
+---
+
+### Frontend Setup
 ```bash
 cd frontend
 npm install
+
+# Run frontend test build
+npm run build
+
+# Start Vite dev server
 npm run dev
 ```
 Open your browser at `http://localhost:5173`.
 
-### 3. Docker Compose
-Run the entire production-grade stack with one command:
-```bash
-docker-compose up --build
-```
-Access the application at `http://localhost:5173`.
-
 ---
 
-## API Reference Overview
+## 🧪 Automated Test Suite (30/30 Passing)
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/documents/upload` | Upload single or batch files (up to 50 files, 25MB each) |
-| `GET` | `/api/documents/{id}` | Retrieve complete before/after scores, defects, and image URLs |
-| `GET` | `/api/documents` | Paginated document list with status, score, and search filters |
-| `GET` | `/api/documents/{id}/download` | Download corrected image, original, or ZIP package |
-| `GET` | `/api/documents/batch/{id}/zip` | Download all corrected documents in a batch as a ZIP |
-| `POST` | `/api/documents/{id}/reprocess` | Fine-tune correction toggles and strengths |
-| `DELETE` | `/api/documents/{id}` | Remove document and associated disk artifacts |
-| `GET` | `/api/analytics/summary` | Aggregate KPI counts, pass rates, and defect distribution |
-| `GET` | `/api/analytics/trends` | Historical quality scores over time |
-| `GET` | `/api/alerts` | Critical quality alerts for failed scans |
-| `GET/PUT` | `/api/settings` | Read and tune metric weights, thresholds, and defaults |
+| Test Module | Coverage |
+|---|---|
+| `backend/tests/test_assessment.py` | Clean docs, blur variance, Hough line skew, shadows, noise, DPI estimation |
+| `backend/tests/test_correction.py` | Deskew, illumination normalization, denoise, sharpen, end-to-end delta improvement |
+| `backend/tests/test_defect_guidance.py` | Glare/hotspot detection, page-edge cut-off, 90°/180° orientation, rescan guidance tips |
+| `backend/tests/test_presets.py` | Built-in presets structure, config override application, receipt/invoice/ID card heuristic detection |
+| `backend/tests/test_report.py` | ReportLab single document branded PDF generation and batch audit report generation |
+| `backend/tests/test_feedback.py` | Rating submission, feedback retrieval, satisfaction analytics, adaptive suggestions engine |
+| `backend/tests/test_explainability.py` | Per-step intermediate score delta calculation, waterfall progression, and detail serialization |
 
----
-
-## Automated Test Suite
-
-Run unit tests asserting that synthetic degraded images (blurred, skewed, dark, noisy) are properly diagnosed and that post-correction scores exceed pre-correction scores:
-
+Run all tests:
 ```bash
 python -m pytest backend/tests -v
 ```
-All 11 unit tests pass verifying:
-- Blur Laplacian variance degradation and unsharp mask recovery
-- Hough line skew estimation and deskew angle alignment
-- Shadow block spread detection and illumination normalization
-- Noise sigma estimation and NL-Means filtering
-- End-to-end delta improvement assertion (`after_score >= before_score`)
+
+---
+
+## 📡 Key API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/documents/upload` | Upload single or batch files with preset selector |
+| `GET` | `/api/documents/{id}` | Complete document record, OCR readiness, and explainability timeline |
+| `GET` | `/api/documents` | Paginated document list with status, score, and preset filters |
+| `POST` | `/api/documents/{id}/feedback` | Submit operator rating (thumbs up/down), disliked steps, and comments |
+| `GET` | `/api/documents/{id}/report` | Download branded single-document PDF Quality Audit Report |
+| `GET` | `/api/documents/batch/{id}/report` | Download batch summary PDF Audit Report |
+| `GET` | `/api/documents/{id}/download` | Download original, corrected, or ZIP package |
+| `POST` | `/api/documents/{id}/reprocess` | Fine-tune correction toggles and rerun pipeline |
+| `GET` | `/api/analytics/summary` | Aggregate KPI counts, pass rates, and OCR gains |
+| `GET` | `/api/analytics/trends` | Historical quality scores and OCR trends over time |
+| `GET` | `/api/analytics/feedback` | User satisfaction rate, thumbs count, and most disliked steps |
+| `GET` | `/api/settings/suggestions` | Feedback-driven adaptive calibration suggestions |
+| `POST` | `/api/settings/suggestions/apply` | Apply suggested threshold or pipeline tweak |
+| `GET` | `/api/settings/presets` | List all document presets |
+| `PUT` | `/api/settings/presets/{id}` | Update preset metric weights, thresholds, and correction defaults |
