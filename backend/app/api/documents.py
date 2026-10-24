@@ -386,6 +386,39 @@ def download_batch_zip(batch_id: str, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/{doc_id}/report")
+def download_document_report(doc_id: str, db: Session = Depends(get_db)):
+    """Generates and downloads a comprehensive PDF quality audit report for a single document."""
+    from backend.app.services.report_service import generate_single_document_report
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    pdf_buf = generate_single_document_report(doc, db)
+    return Response(
+        content=pdf_buf.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=docuquality_report_{doc.id}.pdf"},
+    )
+
+
+@router.get("/batch/{batch_id}/report")
+def download_batch_report(batch_id: str, db: Session = Depends(get_db)):
+    """Generates and downloads a summary PDF audit report for an entire batch of documents."""
+    from backend.app.services.report_service import generate_batch_report
+    docs = db.query(Document).filter(Document.batch_id == batch_id).all()
+    if not docs:
+        raise HTTPException(status_code=404, detail="No documents found for this batch")
+
+    pdf_buf = generate_batch_report(batch_id, db)
+    return Response(
+        content=pdf_buf.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=docuquality_batch_report_{batch_id}.pdf"},
+    )
+
+
+
 @router.post("/{doc_id}/reprocess", response_model=DocumentDetailResponse)
 def reprocess_document(
     doc_id: str,

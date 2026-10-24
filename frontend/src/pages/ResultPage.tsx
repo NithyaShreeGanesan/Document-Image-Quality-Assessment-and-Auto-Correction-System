@@ -155,6 +155,16 @@ export const ResultPage: React.FC<ResultPageProps> = ({
 
         {/* Action Buttons: Download & Reprocess */}
         <div className="flex items-center gap-2.5 relative">
+          <a
+            href={documentApi.getReportUrl(doc.id)}
+            download={`docuquality_report_${doc.id}.pdf`}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
+            title="Download comprehensive PDF quality audit report"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            PDF Quality Report
+          </a>
+
           <button
             onClick={() => setIsReprocessOpen(true)}
             className="px-4 py-2 rounded-xl text-xs font-semibold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1.5"
@@ -175,6 +185,16 @@ export const ResultPage: React.FC<ResultPageProps> = ({
 
             {downloadDropdown && (
               <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-30 py-1 text-xs animate-in fade-in duration-150">
+                <a
+                  href={documentApi.getReportUrl(doc.id)}
+                  download={`docuquality_report_${doc.id}.pdf`}
+                  onClick={() => setDownloadDropdown(false)}
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold"
+                >
+                  <FileDown className="w-4 h-4 text-indigo-500" />
+                  PDF Quality Audit Report
+                </a>
+                <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
                 <a
                   href={documentApi.getDownloadUrl(doc.id, 'corrected')}
                   download

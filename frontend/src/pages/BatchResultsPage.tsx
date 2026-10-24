@@ -13,7 +13,9 @@ import {
   Loader2,
   FileText,
   Search,
+  FileDown,
 } from 'lucide-react';
+
 
 interface BatchResultsPageProps {
   batchId?: string;
@@ -106,14 +108,24 @@ export const BatchResultsPage: React.FC<BatchResultsPageProps> = ({
         {/* Batch Actions */}
         <div className="flex items-center gap-2.5">
           {batchId && (
-            <a
-              href={documentApi.getBatchZipUrl(batchId)}
-              download
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download All as ZIP
-            </a>
+            <>
+              <a
+                href={documentApi.getBatchReportUrl(batchId)}
+                download={`docuquality_batch_report_${batchId}.pdf`}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
+              >
+                <FileDown className="w-3.5 h-3.5" />
+                Batch PDF Report
+              </a>
+              <a
+                href={documentApi.getBatchZipUrl(batchId)}
+                download
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download All as ZIP
+              </a>
+            </>
           )}
           <button
             onClick={onGoToUpload}
@@ -121,6 +133,7 @@ export const BatchResultsPage: React.FC<BatchResultsPageProps> = ({
           >
             Upload New Batch
           </button>
+
         </div>
       </div>
 

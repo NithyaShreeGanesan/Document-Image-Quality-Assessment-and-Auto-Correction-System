@@ -71,9 +71,18 @@ export const documentApi = {
     return `/api/documents/${id}/download?variant=${variant}`;
   },
 
+  getReportUrl: (id: string) => {
+    return `/api/documents/${id}/report`;
+  },
+
   getBatchZipUrl: (batchId: string) => {
     return `/api/documents/batch/${batchId}/zip`;
   },
+
+  getBatchReportUrl: (batchId: string) => {
+    return `/api/documents/batch/${batchId}/report`;
+  },
+
 
   listSamples: async (): Promise<{ filename: string; label: string; size: number }[]> => {
     const response = await api.get('/documents/samples/list');
