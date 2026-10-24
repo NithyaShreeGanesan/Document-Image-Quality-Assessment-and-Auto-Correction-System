@@ -8,6 +8,7 @@ import { DefectBreakdown } from '../components/DefectBreakdown';
 import { CorrectionsList } from '../components/CorrectionsList';
 import { ReprocessModal } from '../components/ReprocessModal';
 import { OcrReadinessCard } from '../components/OcrReadinessCard';
+import { RescanGuidanceCard } from '../components/RescanGuidanceCard';
 import {
   Download,
   Sliders,
@@ -292,6 +293,14 @@ export const ResultPage: React.FC<ResultPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Rescan Guidance & Defect Diagnosis Panel */}
+      <RescanGuidanceCard
+        guidance={doc.rescan_guidance || doc.before_assessment?.rescan_guidance || []}
+        classification={classification}
+        rescanRecommended={doc.rescan_recommended}
+        filename={doc.filename}
+      />
 
       {/* OCR Accuracy & Extraction Proof Card */}
       <OcrReadinessCard

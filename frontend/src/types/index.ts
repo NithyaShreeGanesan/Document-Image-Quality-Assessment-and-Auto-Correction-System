@@ -12,6 +12,15 @@ export interface DefectItem {
   extra?: Record<string, any>;
 }
 
+export interface RescanGuidanceItem {
+  defect: string;
+  label?: string;
+  severity: DefectStatus;
+  title: string;
+  tip: string;
+  explanation?: string;
+}
+
 export interface AssessmentResponse {
   stage: 'before' | 'after';
   overall_score: number;
@@ -34,6 +43,12 @@ export interface AssessmentResponse {
   resolution_score: number;
   resolution_dpi: number;
   resolution_status: DefectStatus;
+  glare_score?: number;
+  glare_raw?: number;
+  cutoff_score?: number;
+  orientation_angle?: number;
+  rescan_recommended?: boolean;
+  rescan_guidance?: RescanGuidanceItem[];
   defects: DefectItem[];
   improvement_delta?: number;
 }
@@ -60,6 +75,8 @@ export interface DocumentDetail {
   before_assessment?: AssessmentResponse;
   after_assessment?: AssessmentResponse;
   applied_corrections: CorrectionItem[];
+  rescan_recommended?: boolean;
+  rescan_guidance?: RescanGuidanceItem[];
   ocr_confidence_before?: number;
   ocr_confidence_after?: number;
   ocr_word_count_before?: number;
@@ -72,6 +89,7 @@ export interface DocumentDetail {
   rescan_tips?: string[];
   feedback?: { rating: string; comment?: string };
 }
+
 
 export interface DocumentSummary {
   id: string;

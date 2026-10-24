@@ -46,6 +46,13 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
         if is_after and before_rec:
             delta = round(rec.overall_score - before_rec.overall_score, 1)
 
+        guidance = []
+        if getattr(rec, "rescan_guidance_json", None):
+            try:
+                guidance = json.loads(rec.rescan_guidance_json)
+            except Exception:
+                pass
+
         return AssessmentResponse(
             stage=rec.stage,
             overall_score=rec.overall_score,
@@ -68,6 +75,12 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
             resolution_score=rec.resolution_score,
             resolution_dpi=rec.resolution_dpi,
             resolution_status=rec.resolution_status,
+            glare_score=getattr(rec, "glare_score", 100.0) or 100.0,
+            glare_raw=getattr(rec, "glare_raw", 0.0) or 0.0,
+            cutoff_score=getattr(rec, "cutoff_score", 100.0) or 100.0,
+            orientation_angle=getattr(rec, "orientation_angle", 0) or 0,
+            rescan_recommended=bool(getattr(rec, "rescan_recommended", False)),
+            rescan_guidance=guidance,
             defects=defects,
             improvement_delta=delta,
         )
@@ -96,6 +109,16 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
     cnt_a = doc.ocr_word_count_after or 0
     words_rec = max(0, cnt_a - cnt_b)
 
+    rescan_rec = False
+    rescan_guide = []
+    if before_rec:
+        rescan_rec = bool(getattr(before_rec, "rescan_recommended", False))
+        if getattr(before_rec, "rescan_guidance_json", None):
+            try:
+                rescan_guide = json.loads(before_rec.rescan_guidance_json)
+            except Exception:
+                pass
+
     return DocumentDetailResponse(
         id=doc.id,
         filename=doc.filename,
@@ -110,6 +133,8 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
         before_assessment=_rec_to_assess(before_rec, False),
         after_assessment=_rec_to_assess(after_rec, True),
         applied_corrections=corrections,
+        rescan_recommended=rescan_rec,
+        rescan_guidance=rescan_guide,
         ocr_confidence_before=doc.ocr_confidence_before,
         ocr_confidence_after=doc.ocr_confidence_after,
         ocr_word_count_before=cnt_b,

@@ -36,6 +36,22 @@ def run_sqlite_migrations(target_engine):
                 if col_name not in existing_cols and len(existing_cols) > 0:
                     conn.execute(text(f"ALTER TABLE documents ADD COLUMN {col_name} {col_type};"))
                     conn.commit()
+
+            # Check existing columns in 'assessments' table
+            result_assess = conn.execute(text("PRAGMA table_info(assessments);")).fetchall()
+            existing_assess_cols = {row[1] for row in result_assess}
+            new_assess_cols = [
+                ("glare_score", "FLOAT DEFAULT 100.0"),
+                ("glare_raw", "FLOAT DEFAULT 0.0"),
+                ("cutoff_score", "FLOAT DEFAULT 100.0"),
+                ("orientation_angle", "INTEGER DEFAULT 0"),
+                ("rescan_recommended", "BOOLEAN DEFAULT 0"),
+                ("rescan_guidance_json", "TEXT"),
+            ]
+            for col_name, col_type in new_assess_cols:
+                if col_name not in existing_assess_cols and len(existing_assess_cols) > 0:
+                    conn.execute(text(f"ALTER TABLE assessments ADD COLUMN {col_name} {col_type};"))
+                    conn.commit()
         except Exception as e:
             print(f"Migration note (can be ignored on fresh DB): {e}")
 

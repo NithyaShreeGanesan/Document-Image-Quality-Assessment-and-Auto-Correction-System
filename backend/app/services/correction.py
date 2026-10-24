@@ -5,7 +5,34 @@ import numpy as np
 from backend.app.services.assessment import assess_document_image
 
 
+def auto_orient_document(image: np.ndarray, orientation_deg: int) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Auto-orients rotated documents (90, 180, 270 deg) to upright orientation.
+    """
+    if orientation_deg == 90:
+        # Rotated 90 deg clockwise -> rotate 90 counter-clockwise to restore upright
+        corrected = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        applied = True
+    elif orientation_deg == 180:
+        # Upside down -> rotate 180
+        corrected = cv2.rotate(image, cv2.ROTATE_180)
+        applied = True
+    elif orientation_deg == 270:
+        # Rotated 270 deg clockwise -> rotate 90 clockwise to restore upright
+        corrected = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+        applied = True
+    else:
+        return image, {"applied": False, "reason": "Already upright"}
+
+    return corrected, {
+        "applied": applied,
+        "orientation_deg": orientation_deg,
+        "description": f"Auto-oriented document by rotating {360 - orientation_deg}° to upright orientation",
+    }
+
+
 def deskew_image(image: np.ndarray, angle: float) -> Tuple[np.ndarray, Dict[str, Any]]:
+
     """
     Rotates image by the detected skew angle with white border fill.
     Positive angle is rotated counter-clockwise to correct clockwise tilt.
@@ -53,10 +80,11 @@ def correct_illumination(
     tile_grid_size: int = 8,
     mean_val: float = 128.0,
     block_spread: float = 0.0,
+    glare_pct: float = 0.0,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     """
-    Fixes lighting, shadows, and contrast via CLAHE on L channel,
-    Gaussian background division normalization for shadow removal, and gamma correction.
+    Fixes lighting, shadows, glare, and contrast via CLAHE on L channel,
+    Gaussian background division normalization for shadow removal, highlight compression, and gamma correction.
     """
     is_color = len(image.shape) == 3
     if is_color:
@@ -66,7 +94,14 @@ def correct_illumination(
     else:
         target = image.copy()
 
-    # Step A: Shadow removal / background division normalization if uneven
+    # Step A: Glare attenuation / specular highlight compression
+    if glare_pct > 0.3:
+        glare_mask = target >= 246
+        if np.any(glare_mask):
+            target = target.copy()
+            target[glare_mask] = np.clip(232 + (target[glare_mask].astype(np.float32) - 246) * 0.45, 0, 255).astype(np.uint8)
+
+    # Step B: Shadow removal / background division normalization if uneven
     if block_spread > 25.0:
         # Estimate background illumination with large Gaussian blur
         ksize = 51 if max(target.shape) > 500 else 25
@@ -77,11 +112,11 @@ def correct_illumination(
         normalized = (target.astype(np.float32) / bg.astype(np.float32)) * 240.0
         target = np.clip(normalized, 0, 255).astype(np.uint8)
 
-    # Step B: CLAHE (Contrast Limited Adaptive Histogram Equalization)
+    # Step C: CLAHE (Contrast Limited Adaptive Histogram Equalization)
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_grid_size, tile_grid_size))
     target = clahe.apply(target)
 
-    # Step C: Adaptive Gamma correction for under/over-exposure
+    # Step D: Adaptive Gamma correction for under/over-exposure
     curr_mean = float(np.mean(target))
     gamma = 1.0
     if curr_mean < 110.0:
@@ -106,8 +141,10 @@ def correct_illumination(
         "clip_limit": clip_limit,
         "gamma": round(gamma, 2),
         "shadow_removal": block_spread > 25.0,
-        "description": "Normalized illumination, cleared shadows via background division, and tuned dynamic range with CLAHE",
+        "glare_attenuation": glare_pct > 0.3,
+        "description": "Normalized illumination, attenuated glare highlights, cleared shadows, and tuned dynamic range with CLAHE",
     }
+
 
 
 def denoise_document(image: np.ndarray, noise_sigma: float) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -311,9 +348,33 @@ def auto_correct_document(
     curr_img = image.copy()
     applied_corrections: List[Dict[str, Any]] = []
 
+    # 0. Auto-Orientation (rotate 90, 180, 270 deg before deskewing)
+    orient_data = assessment.get("orientation", {})
+    rot_deg = int(orient_data.get("rotation", 0))
+    orient_enabled = opts.get("auto_orient", defaults.get("auto_orient_enabled", True))
+    if orient_enabled and rot_deg in (90, 180, 270):
+        curr_img, info = auto_orient_document(curr_img, rot_deg)
+        if info.get("applied"):
+            applied_corrections.append({
+                "step_name": "auto_orient",
+                "order": 0,
+                "params": info,
+                "description": info["description"],
+            })
+            # Re-estimate skew on upright image for fine-tuning
+            from backend.app.services.assessment import compute_skew_metric
+            gray_upright = cv2.cvtColor(curr_img, cv2.COLOR_BGR2GRAY) if len(curr_img.shape) == 3 else curr_img
+            upright_skew = compute_skew_metric(gray_upright, config)
+            skew_angle = float(upright_skew.get("raw_value", 0.0))
+        else:
+            skew_data = assessment.get("skew", {})
+            skew_angle = float(skew_data.get("raw_value", 0.0))
+    else:
+        skew_data = assessment.get("skew", {})
+        skew_angle = float(skew_data.get("raw_value", 0.0))
+
     # 1. Deskew
     skew_data = assessment.get("skew", {})
-    skew_angle = float(skew_data.get("raw_value", 0.0))
     skew_needed = deskew_enabled and (
         abs(skew_angle) >= 0.8 or opts.get("force_deskew", False) or skew_data.get("status") in ["warning", "critical"]
     )
@@ -327,13 +388,16 @@ def auto_correct_document(
                 "description": info["description"],
             })
 
-    # 2. Illumination & exposure
+    # 2. Illumination, glare, & exposure
     bright_data = assessment.get("brightness", {})
     contrast_data = assessment.get("contrast", {})
+    glare_data = assessment.get("glare", {})
+    glare_pct = float(glare_data.get("raw_value", 0.0))
     illum_needed = illum_enabled and (
         bright_data.get("status") in ["warning", "critical"]
         or contrast_data.get("status") in ["warning", "critical"]
         or bright_data.get("block_spread", 0.0) > 25.0
+        or glare_pct >= 0.5
         or opts.get("force_illumination", False)
     )
     if illum_needed:
@@ -343,6 +407,7 @@ def auto_correct_document(
             clip_limit=clip,
             mean_val=bright_data.get("raw_value", 128.0),
             block_spread=bright_data.get("block_spread", 0.0),
+            glare_pct=glare_pct,
         )
         if info.get("applied"):
             applied_corrections.append({

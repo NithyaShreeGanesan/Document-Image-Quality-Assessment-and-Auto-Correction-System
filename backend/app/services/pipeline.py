@@ -85,6 +85,12 @@ def process_single_image(
             resolution_score=before_assess["resolution"]["sub_score"],
             resolution_dpi=before_assess["resolution"]["raw_value"],
             resolution_status=before_assess["resolution"]["status"],
+            glare_score=before_assess.get("glare", {}).get("sub_score", 100.0),
+            glare_raw=before_assess.get("glare", {}).get("raw_value", 0.0),
+            cutoff_score=before_assess.get("cutoff", {}).get("sub_score", 100.0),
+            orientation_angle=int(before_assess.get("orientation", {}).get("rotation", 0)),
+            rescan_recommended=before_assess.get("rescan_recommended", False),
+            rescan_guidance_json=json.dumps(before_assess.get("rescan_guidance", [])),
             classification=before_assess["classification"],
             defects_json=json.dumps(before_assess["defects"]),
         )
@@ -92,10 +98,12 @@ def process_single_image(
 
         # Create alert if initial quality is Fail (score < 45) or any critical defect detected
         has_critical = any(d.get("status") == "critical" for d in before_assess.get("defects", []))
-        if before_assess["classification"] == "Fail" or has_critical:
+        if before_assess["classification"] == "Fail" or has_critical or before_assess.get("rescan_recommended"):
+            top_guidance = before_assess.get("rescan_guidance", [])
+            tip_text = f" Tip: {top_guidance[0]['tip']}" if top_guidance else ""
             alert = Alert(
                 document_id=doc_id,
-                message=f"Low-quality scan detected: '{filename}' scored {before_assess['overall_score']}/100 ({before_assess['classification']}). Flagged for re-scan review.",
+                message=f"Low-quality scan detected: '{filename}' scored {before_assess['overall_score']}/100 ({before_assess['classification']}).{tip_text}",
                 severity="critical" if before_assess["classification"] == "Fail" else "warning",
             )
             db.add(alert)
@@ -147,6 +155,12 @@ def process_single_image(
             resolution_score=after_assess["resolution"]["sub_score"],
             resolution_dpi=after_assess["resolution"]["raw_value"],
             resolution_status=after_assess["resolution"]["status"],
+            glare_score=after_assess.get("glare", {}).get("sub_score", 100.0),
+            glare_raw=after_assess.get("glare", {}).get("raw_value", 0.0),
+            cutoff_score=after_assess.get("cutoff", {}).get("sub_score", 100.0),
+            orientation_angle=int(after_assess.get("orientation", {}).get("rotation", 0)),
+            rescan_recommended=after_assess.get("rescan_recommended", False),
+            rescan_guidance_json=json.dumps(after_assess.get("rescan_guidance", [])),
             classification=after_assess["classification"],
             defects_json=json.dumps(after_assess["defects"]),
         )

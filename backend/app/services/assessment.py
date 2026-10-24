@@ -348,11 +348,262 @@ def compute_resolution_metric(image: np.ndarray, config: Dict[str, Any]) -> Dict
     }
 
 
+def compute_glare_metric(image: np.ndarray, config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Detects specular glare / lighting hotspots caused by camera flash or bright point lights.
+    Identifies high-intensity saturated regions (> 248) with low local gradient variance.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+    h, w = gray.shape[:2]
+    total_pixels = max(1, h * w)
+
+    # Hotspot mask: bright pixels >= 248
+    hot_mask = (gray >= 248).astype(np.uint8)
+
+    # Local texture/gradient check: glare has smooth/clipped variance
+    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    grad_mag = np.sqrt(gx**2 + gy**2)
+    # Glare regions have low gradient magnitude (saturated flat white)
+    glare_candidates = np.logical_and(hot_mask == 1, grad_mag < 15.0).astype(np.uint8) * 255
+
+    # Filter out tiny noise dots with morphological opening
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    glare_clean = cv2.morphologyEx(glare_candidates, cv2.MORPH_OPEN, kernel)
+
+    # Connected components to find significant hotspot blobs
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(glare_clean)
+    min_blob_area = max(25, int(total_pixels * 0.0005))  # at least 0.05% of page
+    glare_pixel_count = 0
+
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area >= min_blob_area:
+            glare_pixel_count += area
+
+    glare_pct = (glare_pixel_count / total_pixels) * 100.0
+
+    if glare_pct < 0.2:
+        sub_score = 100.0 - (glare_pct * 25.0)
+        status = "good"
+        explanation = "No specular glare or lighting hotspots detected"
+    elif glare_pct < 1.5:
+        sub_score = 85.0 - ((glare_pct - 0.2) / 1.3) * 35.0
+        status = "warning"
+        explanation = f"Moderate glare hotspot detected ({glare_pct:.1f}% area) - possible flash reflection"
+    else:
+        sub_score = max(5.0, 50.0 - min(45.0, (glare_pct - 1.5) * 10.0))
+        status = "critical"
+        explanation = f"Severe glare reflection ({glare_pct:.1f}% area) obscuring document text"
+
+    return {
+        "metric": "glare",
+        "label": "Glare & Hotspots",
+        "raw_value": round(glare_pct, 2),
+        "unit": "%",
+        "sub_score": round(sub_score, 1),
+        "status": status,
+        "explanation": explanation,
+    }
+
+
+def compute_cutoff_metric(gray: np.ndarray, config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Detects page-edge cut-off: checks if text or document boundaries touch within 5px of the image edge.
+    """
+    h, w = gray.shape[:2]
+    # Invert binary Otsu: text/strokes become foreground 255
+    _, binary_inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    border_thickness = min(5, max(1, min(h, w) // 10))
+    touching_edges: List[str] = []
+
+    # Check top, bottom, left, right border bands
+    top_strip = binary_inv[0:border_thickness, :]
+    bottom_strip = binary_inv[-border_thickness:, :]
+    left_strip = binary_inv[:, 0:border_thickness]
+    right_strip = binary_inv[:, -border_thickness:]
+
+    # Density threshold in border band (e.g. text or line cutting through border)
+    threshold_density = 0.025
+
+    if (np.sum(top_strip > 0) / top_strip.size) > threshold_density:
+        touching_edges.append("top")
+    if (np.sum(bottom_strip > 0) / bottom_strip.size) > threshold_density:
+        touching_edges.append("bottom")
+    if (np.sum(left_strip > 0) / left_strip.size) > threshold_density:
+        touching_edges.append("left")
+    if (np.sum(right_strip > 0) / right_strip.size) > threshold_density:
+        touching_edges.append("right")
+
+    num_cut = len(touching_edges)
+    if num_cut == 0:
+        sub_score = 100.0
+        status = "good"
+        explanation = "Document margins intact with no page-edge cut-off"
+    elif num_cut == 1:
+        sub_score = 68.0
+        status = "warning"
+        explanation = f"Potential content cut-off touching {touching_edges[0]} edge"
+    else:
+        sub_score = max(10.0, 45.0 - (num_cut - 2) * 15.0)
+        status = "critical"
+        explanation = f"Severe page-edge cut-off touching {', '.join(touching_edges)} edges"
+
+    return {
+        "metric": "cutoff",
+        "label": "Page-Edge Framing",
+        "raw_value": float(num_cut),
+        "unit": "edges",
+        "touching_edges": touching_edges,
+        "sub_score": round(sub_score, 1),
+        "status": status,
+        "explanation": explanation,
+    }
+
+
+def compute_orientation_metric(image: np.ndarray, config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Detects 0, 90, 180, or 270 degree rotation.
+    Uses Tesseract OSD if available, with robust CV projection profile ratio fallback.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+    h, w = gray.shape[:2]
+
+    detected_rotation = 0
+    method = "contour_aspect"
+
+    # Try Tesseract OSD if tesseract is enabled and working
+    try:
+        from backend.app.services.ocr_service import get_tesseract_status
+        import pytesseract
+
+        status = get_tesseract_status()
+        if status.get("tesseract_available"):
+            osd = pytesseract.image_to_osd(gray, output_type=pytesseract.Output.DICT)
+            rot = int(osd.get("rotate", 0))
+            conf = float(osd.get("orientation_conf", 0.0))
+            if conf >= 2.0 and rot in (0, 90, 180, 270):
+                detected_rotation = rot
+                confidence = round(conf, 1)
+                method = "tesseract_osd"
+    except Exception:
+        pass
+
+    if method == "contour_aspect":
+        # Morphological word/line contour aspect ratio
+        _, bin_inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 3))
+        dilated = cv2.dilate(bin_inv, kernel, iterations=1)
+        contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        horizontal_count = 0
+        vertical_count = 0
+        for c in contours:
+            x, y, cw, ch = cv2.boundingRect(c)
+            if cw > 18 and ch > 5:
+                if cw > ch * 1.3:
+                    horizontal_count += 1
+                elif ch > cw * 1.3:
+                    vertical_count += 1
+
+        if vertical_count > horizontal_count * 1.5 and vertical_count >= 2:
+            detected_rotation = 90
+            confidence = round(vertical_count / max(1, horizontal_count), 2)
+        else:
+            detected_rotation = 0
+            confidence = round(horizontal_count / max(1, vertical_count), 2)
+
+    if detected_rotation == 0:
+        sub_score = 100.0
+        status = "good"
+        explanation = "Document is right-side up (0° orientation)"
+    else:
+        sub_score = 25.0
+        status = "critical"
+        explanation = f"Wrong orientation: document is rotated {detected_rotation}°"
+
+    return {
+        "metric": "orientation",
+        "label": "Document Orientation",
+        "raw_value": float(detected_rotation),
+        "rotation": detected_rotation,
+        "confidence": confidence,
+        "unit": "deg",
+        "sub_score": round(sub_score, 1),
+        "status": status,
+        "explanation": explanation,
+    }
+
+
+def generate_rescan_guidance(
+    defects: List[Dict[str, Any]],
+    overall_score: float = 100.0,
+    classification: str = "Pass",
+) -> List[Dict[str, Any]]:
+    """
+    Generates plain-language, actionable guidance tips to help users get a better capture/scan.
+    """
+    guidance: List[Dict[str, Any]] = []
+
+    guidance_map = {
+        "blur": {
+            "title": "Blur & Soft Focus",
+            "tip": "Hold camera steady; tap screen to focus; increase ambient light.",
+        },
+        "contrast": {
+            "title": "Low Contrast & Faint Text",
+            "tip": "Avoid colored backgrounds; ensure even lighting.",
+        },
+        "glare": {
+            "title": "Glare & Flash Reflection",
+            "tip": "Angle the phone away from direct light or turn off flash.",
+        },
+        "skew": {
+            "title": "Document Tilt & Skew",
+            "tip": "Align the document edges with the camera frame.",
+        },
+        "brightness": {
+            "title": "Shadows & Uneven Lighting",
+            "tip": "Position light source in front or to the side, not behind.",
+        },
+        "resolution": {
+            "title": "Low Resolution / Far Distance",
+            "tip": "Move camera closer to the document.",
+        },
+        "cutoff": {
+            "title": "Page Margins Clipped",
+            "tip": "Keep entire page inside frame with a 1-inch border around all edges.",
+        },
+        "orientation": {
+            "title": "Wrong Orientation",
+            "tip": "Rotate the document so text reads right-side up.",
+        },
+    }
+
+    for d in defects:
+        m = d.get("metric")
+        status = d.get("status")
+        if status in ("warning", "critical") and m in guidance_map:
+            guidance.append({
+                "defect": m,
+                "label": d.get("label", m.capitalize()),
+                "severity": status,
+                "title": guidance_map[m]["title"],
+                "tip": guidance_map[m]["tip"],
+                "explanation": d.get("explanation", ""),
+            })
+
+    # Prioritize critical issues first
+    guidance.sort(key=lambda x: 0 if x["severity"] == "critical" else 1)
+    return guidance
+
+
 def assess_document_image(image: np.ndarray, config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Main Quality Assessment function.
-    Evaluates 6 metrics, normalizes to 0-100, computes weighted overall score,
-    and returns defect breakdown and classification (Pass, Needs Correction, Fail).
+    Evaluates comprehensive metrics, normalizes to 0-100, computes weighted overall score,
+    and returns defect breakdown, rescan guidance, and classification (Pass, Needs Correction, Fail).
     """
     if len(image.shape) == 3:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -365,8 +616,21 @@ def assess_document_image(image: np.ndarray, config: Dict[str, Any]) -> Dict[str
     contrast_res = compute_contrast_metric(gray, config)
     noise_res = compute_noise_metric(gray, config)
     resolution_res = compute_resolution_metric(image, config)
+    glare_res = compute_glare_metric(image, config)
+    cutoff_res = compute_cutoff_metric(gray, config)
+    orientation_res = compute_orientation_metric(image, config)
 
-    defects = [blur_res, skew_res, brightness_res, contrast_res, noise_res, resolution_res]
+    defects = [
+        blur_res,
+        skew_res,
+        brightness_res,
+        contrast_res,
+        noise_res,
+        resolution_res,
+        glare_res,
+        cutoff_res,
+        orientation_res,
+    ]
 
     weights = config.get("weights", {
         "blur": 0.25,
@@ -377,17 +641,19 @@ def assess_document_image(image: np.ndarray, config: Dict[str, Any]) -> Dict[str
         "resolution": 0.15,
     })
 
-    total_weight = sum(weights.values()) or 1.0
-    weighted_sum = (
-        blur_res["sub_score"] * weights.get("blur", 0.25)
-        + skew_res["sub_score"] * weights.get("skew", 0.15)
-        + brightness_res["sub_score"] * weights.get("brightness", 0.15)
-        + contrast_res["sub_score"] * weights.get("contrast", 0.15)
-        + noise_res["sub_score"] * weights.get("noise", 0.15)
-        + resolution_res["sub_score"] * weights.get("resolution", 0.15)
-    )
+    total_weight = 0.0
+    weighted_sum = 0.0
+    for d in defects:
+        m = d["metric"]
+        w = float(weights.get(m, 0.0))
+        if w > 0:
+            weighted_sum += d["sub_score"] * w
+            total_weight += w
 
-    overall_score = round(weighted_sum / total_weight, 1)
+    if total_weight > 0:
+        overall_score = round(weighted_sum / total_weight, 1)
+    else:
+        overall_score = 50.0
 
     cls_cfg = config.get("classification", {})
     pass_thresh = cls_cfg.get("pass_score", 75.0)
@@ -399,7 +665,6 @@ def assess_document_image(image: np.ndarray, config: Dict[str, Any]) -> Dict[str
     if overall_score >= pass_thresh and not any_crit:
         classification = "Pass"
     elif overall_score >= fail_thresh or any_crit:
-        # If overall score is too low or severely degraded, check if below fail_thresh
         if overall_score < fail_thresh:
             classification = "Fail"
         else:
@@ -407,14 +672,23 @@ def assess_document_image(image: np.ndarray, config: Dict[str, Any]) -> Dict[str
     else:
         classification = "Fail"
 
+    guidance = generate_rescan_guidance(defects, overall_score, classification)
+    rescan_recommended = (classification == "Fail") or any(g["severity"] == "critical" for g in guidance)
+
     return {
         "overall_score": overall_score,
         "classification": classification,
+        "rescan_recommended": rescan_recommended,
+        "rescan_guidance": guidance,
         "blur": blur_res,
         "skew": skew_res,
         "brightness": brightness_res,
         "contrast": contrast_res,
         "noise": noise_res,
         "resolution": resolution_res,
+        "glare": glare_res,
+        "cutoff": cutoff_res,
+        "orientation": orientation_res,
         "defects": defects,
     }
+

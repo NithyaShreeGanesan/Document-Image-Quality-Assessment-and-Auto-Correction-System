@@ -36,6 +36,12 @@ class AssessmentResponse(BaseModel):
     resolution_score: float
     resolution_dpi: float
     resolution_status: str
+    glare_score: Optional[float] = 100.0
+    glare_raw: Optional[float] = 0.0
+    cutoff_score: Optional[float] = 100.0
+    orientation_angle: Optional[int] = 0
+    rescan_recommended: Optional[bool] = False
+    rescan_guidance: List[Dict[str, Any]] = []
     defects: List[DefectItem] = []
     improvement_delta: Optional[float] = None
 
@@ -62,6 +68,8 @@ class DocumentDetailResponse(BaseModel):
     before_assessment: Optional[AssessmentResponse] = None
     after_assessment: Optional[AssessmentResponse] = None
     applied_corrections: List[CorrectionItem] = []
+    rescan_recommended: Optional[bool] = False
+    rescan_guidance: List[Dict[str, Any]] = []
     ocr_confidence_before: Optional[float] = None
     ocr_confidence_after: Optional[float] = None
     ocr_word_count_before: Optional[int] = 0
@@ -71,6 +79,7 @@ class DocumentDetailResponse(BaseModel):
     ocr_text_after: Optional[str] = None
     ocr_engine: Optional[str] = None
     ocr_message: Optional[str] = None
+
 
 
 class DocumentSummaryResponse(BaseModel):

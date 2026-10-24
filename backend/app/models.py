@@ -65,9 +65,17 @@ class Assessment(Base):
     resolution_dpi = Column(Float, nullable=False)
     resolution_status = Column(String(20), default="good")
 
+    glare_score = Column(Float, nullable=True, default=100.0)
+    glare_raw = Column(Float, nullable=True, default=0.0)
+    cutoff_score = Column(Float, nullable=True, default=100.0)
+    orientation_angle = Column(Integer, nullable=True, default=0)
+    rescan_recommended = Column(Boolean, nullable=True, default=False)
+    rescan_guidance_json = Column(Text, nullable=True)
+
     classification = Column(String(30), nullable=False)  # Pass, Needs Correction, Fail
     defects_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
 
     document = relationship("Document", back_populates="assessments")
 
