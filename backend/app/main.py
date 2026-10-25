@@ -22,6 +22,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_version="3.0.3",
 )
 
 
@@ -34,6 +35,8 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
+    # Ensure OpenAPI 3.0.3 specification for universal Swagger UI multi-file chooser compatibility
+    openapi_schema["openapi"] = "3.0.3"
 
     # Inline $ref schemas in requestBody so requestBody content schema has properties directly
     for path_item in openapi_schema.get("paths", {}).values():
@@ -63,7 +66,17 @@ def custom_openapi():
             node.pop("contentMediaType", None)
             node["type"] = "string"
             node["format"] = "binary"
-        for v in node.values():
+        # OpenAPI 3.0 nullable normalization
+        if "anyOf" in node and isinstance(node["anyOf"], list):
+            types = [t.get("type") for t in node["anyOf"] if isinstance(t, dict)]
+            if "null" in types:
+                non_null = [t for t in node["anyOf"] if t.get("type") != "null"]
+                if non_null and "type" in non_null[0]:
+                    node["type"] = non_null[0]["type"]
+                    node["nullable"] = True
+                    node.pop("anyOf", None)
+
+        for v in list(node.values()):
             if isinstance(v, dict):
                 _transform_file_schemas(v)
             elif isinstance(v, list):
@@ -72,6 +85,36 @@ def custom_openapi():
                         _transform_file_schemas(elem)
 
     _transform_file_schemas(openapi_schema)
+
+    # Explicitly enforce binary format on both path requestBody and component schema
+    upload_schema = (
+        openapi_schema.get("paths", {})
+        .get("/api/documents/upload", {})
+        .get("post", {})
+        .get("requestBody", {})
+        .get("content", {})
+        .get("multipart/form-data", {})
+        .get("schema", {})
+    )
+    if "properties" in upload_schema and "files" in upload_schema["properties"]:
+        files_prop = upload_schema["properties"]["files"]
+        if "items" in files_prop and isinstance(files_prop["items"], dict):
+            files_prop["items"].pop("contentMediaType", None)
+            files_prop["items"]["type"] = "string"
+            files_prop["items"]["format"] = "binary"
+
+    body_schema = (
+        openapi_schema.get("components", {})
+        .get("schemas", {})
+        .get("Body_upload_documents_api_documents_upload_post", {})
+    )
+    if "properties" in body_schema and "files" in body_schema["properties"]:
+        files_prop = body_schema["properties"]["files"]
+        if "items" in files_prop and isinstance(files_prop["items"], dict):
+            files_prop["items"].pop("contentMediaType", None)
+            files_prop["items"]["type"] = "string"
+            files_prop["items"]["format"] = "binary"
+
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 

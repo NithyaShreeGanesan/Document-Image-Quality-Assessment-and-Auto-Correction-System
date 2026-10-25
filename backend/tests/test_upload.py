@@ -33,6 +33,8 @@ def test_openapi_swagger_file_picker_schema(client):
     assert res.status_code == 200
     schema = res.json()
 
+    assert schema.get("openapi") == "3.0.3", f"Expected OpenAPI 3.0.3, got: {schema.get('openapi')}"
+
     target_items = schema["paths"]["/api/documents/upload"]["post"]["requestBody"]["content"]["multipart/form-data"]["schema"]["properties"]["files"]["items"]
     assert target_items.get("format") == "binary", f"Expected format 'binary', got: {target_items.get('format')}"
     assert "contentMediaType" not in target_items, f"contentMediaType must be absent, but found: {target_items}"
@@ -40,6 +42,7 @@ def test_openapi_swagger_file_picker_schema(client):
 
     # Also verify component schema for complete OpenAPI consistency
     comp_items = schema["components"]["schemas"]["Body_upload_documents_api_documents_upload_post"]["properties"]["files"]["items"]
+    assert comp_items.get("type") == "string"
     assert comp_items.get("format") == "binary"
     assert "contentMediaType" not in comp_items
 
