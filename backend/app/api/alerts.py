@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
+from app.database import get_db
 from backend.app.models import Alert, Document
 from backend.app.schemas import AlertResponse
 
