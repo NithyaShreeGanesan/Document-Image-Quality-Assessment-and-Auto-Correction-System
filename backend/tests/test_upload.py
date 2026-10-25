@@ -25,15 +25,23 @@ def _make_dummy_image_bytes(text="DocuQuality Sample Upload Document") -> bytes:
 
 def test_openapi_swagger_file_picker_schema(client):
     """
-    Verifies that the OpenAPI schema for /upload defines files as an array of binary items
-    with format='binary' so Swagger UI displays a file picker instead of array<string>.
+    Verifies that the generated OpenAPI schema at:
+    paths["/api/documents/upload"]["post"]["requestBody"]["content"]["multipart/form-data"]["schema"]["properties"]["files"]["items"]
+    has format == 'binary' and contentMediaType is absent, ensuring Swagger UI displays a file picker.
     """
-    schema = app.openapi()
-    upload_schema = schema["components"]["schemas"]["Body_upload_documents_api_documents_upload_post"]
-    files_prop = upload_schema["properties"]["files"]
-    assert files_prop["type"] == "array"
-    assert files_prop["items"]["type"] == "string"
-    assert files_prop["items"].get("format") == "binary"
+    res = client.get("/openapi.json")
+    assert res.status_code == 200
+    schema = res.json()
+
+    target_items = schema["paths"]["/api/documents/upload"]["post"]["requestBody"]["content"]["multipart/form-data"]["schema"]["properties"]["files"]["items"]
+    assert target_items.get("format") == "binary", f"Expected format 'binary', got: {target_items.get('format')}"
+    assert "contentMediaType" not in target_items, f"contentMediaType must be absent, but found: {target_items}"
+    assert target_items.get("type") == "string"
+
+    # Also verify component schema for complete OpenAPI consistency
+    comp_items = schema["components"]["schemas"]["Body_upload_documents_api_documents_upload_post"]["properties"]["files"]["items"]
+    assert comp_items.get("format") == "binary"
+    assert "contentMediaType" not in comp_items
 
 
 def test_upload_single_document(client):

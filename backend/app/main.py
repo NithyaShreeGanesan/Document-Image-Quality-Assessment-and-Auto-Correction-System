@@ -13,6 +13,7 @@ from app.database import Base, engine, run_sqlite_migrations
 Base.metadata.create_all(bind=engine)
 run_sqlite_migrations(engine)
 
+import copy
 from fastapi.openapi.utils import get_openapi
 
 app = FastAPI(
@@ -33,14 +34,44 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
-    # Ensure Swagger UI renders file upload controls for binary uploads in OpenAPI 3.1
-    for schema in openapi_schema.get("components", {}).get("schemas", {}).values():
-        for prop in schema.get("properties", {}).values():
-            if prop.get("type") == "array" and "items" in prop:
-                if prop["items"].get("contentMediaType") == "application/octet-stream":
-                    prop["items"]["format"] = "binary"
-            elif prop.get("contentMediaType") == "application/octet-stream":
-                prop["format"] = "binary"
+
+    # Inline $ref schemas in requestBody so requestBody content schema has properties directly
+    for path_item in openapi_schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if isinstance(operation, dict) and "requestBody" in operation:
+                rb_content = operation["requestBody"].get("content", {})
+                for media_obj in rb_content.values():
+                    if isinstance(media_obj, dict) and "schema" in media_obj:
+                        m_schema = media_obj["schema"]
+                        if isinstance(m_schema, dict) and "$ref" in m_schema:
+                            ref_key = m_schema["$ref"].split("/")[-1]
+                            comp_schemas = openapi_schema.get("components", {}).get("schemas", {})
+                            if ref_key in comp_schemas:
+                                media_obj["schema"] = copy.deepcopy(comp_schemas[ref_key])
+
+    # Recursive schema transformation to remove contentMediaType and set {"type": "string", "format": "binary"}
+    def _transform_file_schemas(node):
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "array" and "items" in node and isinstance(node["items"], dict):
+            items = node["items"]
+            if items.get("contentMediaType") == "application/octet-stream" or items.get("format") == "binary":
+                items.pop("contentMediaType", None)
+                items["type"] = "string"
+                items["format"] = "binary"
+        if node.get("contentMediaType") == "application/octet-stream":
+            node.pop("contentMediaType", None)
+            node["type"] = "string"
+            node["format"] = "binary"
+        for v in node.values():
+            if isinstance(v, dict):
+                _transform_file_schemas(v)
+            elif isinstance(v, list):
+                for elem in v:
+                    if isinstance(elem, dict):
+                        _transform_file_schemas(elem)
+
+    _transform_file_schemas(openapi_schema)
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
