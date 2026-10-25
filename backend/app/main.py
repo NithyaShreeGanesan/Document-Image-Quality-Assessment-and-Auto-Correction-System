@@ -22,19 +22,27 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_version="3.0.3",
 )
 
 
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes,
-    )
+    try:
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+            openapi_version="3.0.3",
+        )
+    except TypeError:
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
     # Ensure OpenAPI 3.0.3 specification for universal Swagger UI multi-file chooser compatibility
     openapi_schema["openapi"] = "3.0.3"
 
