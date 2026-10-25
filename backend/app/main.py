@@ -13,6 +13,8 @@ from app.database import Base, engine, run_sqlite_migrations
 Base.metadata.create_all(bind=engine)
 run_sqlite_migrations(engine)
 
+from fastapi.openapi.utils import get_openapi
+
 app = FastAPI(
     title="DocuQuality: Document Image Quality Assessment & Auto-Correction API",
     description="Automated scoring and targeted auto-correction engine for document scans and mobile captures.",
@@ -20,6 +22,30 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    # Ensure Swagger UI renders file upload controls for binary uploads in OpenAPI 3.1
+    for schema in openapi_schema.get("components", {}).get("schemas", {}).values():
+        for prop in schema.get("properties", {}).values():
+            if prop.get("type") == "array" and "items" in prop:
+                if prop["items"].get("contentMediaType") == "application/octet-stream":
+                    prop["items"]["format"] = "binary"
+            elif prop.get("contentMediaType") == "application/octet-stream":
+                prop["format"] = "binary"
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 # CORS setup
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000").split(",")

@@ -21,6 +21,7 @@ from app.schemas import (
     PaginatedDocumentsResponse,
     PerStepScoreItem,
     ReprocessRequest,
+    UploadResponse,
 )
 from app.services.pipeline import process_single_image, process_upload_file
 from app.services.storage import create_zip_archive
@@ -179,9 +180,9 @@ def _doc_to_detail(doc: Document) -> DocumentDetailResponse:
     )
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=UploadResponse)
 async def upload_documents(
-    files: List[UploadFile] = File(...),
+    files: List[UploadFile] = File(..., description="Document files to upload (single or batch up to 50)"),
     preset: Optional[str] = Form("auto"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
@@ -196,29 +197,35 @@ async def upload_documents(
     batch_id = str(uuid.uuid4())
     created_doc_ids: List[str] = []
 
-
     for upload_file in files:
-        ext = Path(upload_file.filename).suffix.lower()
+        filename = upload_file.filename or "uploaded_document.png"
+        ext = Path(filename).suffix.lower()
         if ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported format for '{upload_file.filename}'. Allowed: JPEG, PNG, TIFF, PDF.",
+                detail=f"Unsupported format for '{filename}'. Allowed: JPEG, PNG, TIFF, PDF.",
             )
 
         content = await upload_file.read()
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{upload_file.filename}' exceeds maximum allowed size of 25 MB.",
+                detail=f"File '{filename}' exceeds maximum allowed size of 25 MB.",
             )
 
         # Process file synchronously or via pipeline
         # Processing synchronously ensures immediate readiness; for batches, it processes each sequentially
         try:
-            ids = process_upload_file(db, content, upload_file.filename, batch_id=batch_id, preset=preset)
+            ids = process_upload_file(db, content, filename, batch_id=batch_id, preset=preset)
             created_doc_ids.extend(ids)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to process '{upload_file.filename}': {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to process '{filename}': {str(e)}")
+
+    return UploadResponse(
+        batch_id=batch_id,
+        document_ids=created_doc_ids,
+        count=len(created_doc_ids),
+    )
 
 @router.get("/samples/list")
 def list_demo_samples():

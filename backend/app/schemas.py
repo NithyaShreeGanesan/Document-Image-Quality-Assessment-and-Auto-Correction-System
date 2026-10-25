@@ -123,6 +123,11 @@ class ReprocessRequest(BaseModel):
     force_sharpen: Optional[bool] = False
 
 
+class UploadResponse(BaseModel):
+    batch_id: str
+    document_ids: List[str]
+    count: int
+
 
 class AlertResponse(BaseModel):
     id: int
