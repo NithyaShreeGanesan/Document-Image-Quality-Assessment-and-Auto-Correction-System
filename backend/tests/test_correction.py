@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
-from backend.app.services.assessment import assess_document_image
-from backend.app.services.correction import (
+from app.services.assessment import assess_document_image
+from app.services.correction import (
     auto_correct_document,
     correct_illumination,
     denoise_document,

@@ -475,7 +475,7 @@ def compute_orientation_metric(image: np.ndarray, config: Dict[str, Any]) -> Dic
 
     # Try Tesseract OSD if tesseract is enabled and working
     try:
-        from backend.app.services.ocr_service import get_tesseract_status
+        from app.services.ocr_service import get_tesseract_status
         import pytesseract
 
         status = get_tesseract_status()

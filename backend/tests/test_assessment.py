@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from backend.app.services.assessment import (
+from app.services.assessment import (
     assess_document_image,
     compute_blur_metric,
     compute_brightness_metric,

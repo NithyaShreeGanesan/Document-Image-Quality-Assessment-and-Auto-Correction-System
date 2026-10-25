@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from sqlalchemy.orm import Session
 
-from backend.app.config import load_config, save_config
-from backend.app.database import get_db
-from backend.app.models import Setting
-from backend.app.schemas import ApplySuggestionRequest, SettingsUpdateRequest, SuggestionItem
-from backend.app.services.suggestions import apply_suggestion, generate_setting_suggestions
+from app.config import load_config, save_config
+from app.database import get_db
+from app.models import Setting
+from app.schemas import ApplySuggestionRequest, SettingsUpdateRequest, SuggestionItem
+from app.services.suggestions import apply_suggestion, generate_setting_suggestions
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -62,7 +62,7 @@ def update_settings(req: SettingsUpdateRequest, db: Session = Depends(get_db)):
 @router.get("/presets")
 def get_presets(db: Session = Depends(get_db)):
     """Returns all document-type presets and their configured weights/thresholds."""
-    from backend.app.services.presets import BUILTIN_PRESETS
+    from app.services.presets import BUILTIN_PRESETS
 
     presets_list = []
     for pid, pdata in BUILTIN_PRESETS.items():
@@ -82,7 +82,7 @@ def get_presets(db: Session = Depends(get_db)):
 @router.put("/presets/{preset_id}")
 def update_preset(preset_id: str, updates: Dict[str, Any], db: Session = Depends(get_db)):
     """Updates a specific document-type preset configuration."""
-    from backend.app.services.presets import BUILTIN_PRESETS
+    from app.services.presets import BUILTIN_PRESETS
 
     pid = preset_id.lower().strip()
     if pid not in BUILTIN_PRESETS:

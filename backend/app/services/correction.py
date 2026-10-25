@@ -2,7 +2,7 @@ import math
 from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
-from backend.app.services.assessment import assess_document_image
+from app.services.assessment import assess_document_image
 
 
 def auto_orient_document(image: np.ndarray, orientation_deg: int) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -385,7 +385,7 @@ def auto_correct_document(
                 "critical",
             )
             # Re-estimate skew on upright image for fine-tuning
-            from backend.app.services.assessment import compute_skew_metric
+            from app.services.assessment import compute_skew_metric
             gray_upright = cv2.cvtColor(curr_img, cv2.COLOR_BGR2GRAY) if len(curr_img.shape) == 3 else curr_img
             upright_skew = compute_skew_metric(gray_upright, config)
             skew_angle = float(upright_skew.get("raw_value", 0.0))

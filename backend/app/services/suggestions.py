@@ -3,9 +3,9 @@ from collections import Counter
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
-from backend.app.config import load_config, save_config
-from backend.app.models import Assessment, Document, Feedback, Setting
-from backend.app.services.presets import BUILTIN_PRESETS
+from app.config import load_config, save_config
+from app.models import Assessment, Document, Feedback, Setting
+from app.services.presets import BUILTIN_PRESETS
 
 
 def generate_setting_suggestions(db: Session) -> List[Dict[str, Any]]:

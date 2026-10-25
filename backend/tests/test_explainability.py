@@ -5,13 +5,13 @@ import cv2
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.app.database import Base
-from backend.app.models import Document, Assessment, Correction
-from backend.app.config import load_config
-from backend.app.services.assessment import assess_document_image
-from backend.app.services.correction import auto_correct_document
-from backend.app.api.documents import _doc_to_detail
-from backend.app.schemas import PerStepScoreItem
+from app.database import Base
+from app.models import Document, Assessment, Correction
+from app.config import load_config
+from app.services.assessment import assess_document_image
+from app.services.correction import auto_correct_document
+from app.api.documents import _doc_to_detail
+from app.schemas import PerStepScoreItem
 
 
 def _create_synthetic_document_with_defects() -> np.ndarray:

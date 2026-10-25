@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.models import Assessment, Document, Feedback
-from backend.app.schemas import AnalyticsSummaryResponse, AnalyticsTrendPoint, UserSatisfactionResponse
+from app.database import get_db
+from app.models import Assessment, Document, Feedback
+from app.schemas import AnalyticsSummaryResponse, AnalyticsTrendPoint, UserSatisfactionResponse
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 

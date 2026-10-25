@@ -22,14 +22,14 @@ test:
 	python -m pytest backend/tests -v
 
 dev-backend:
-	python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+	python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
 
 dev-frontend:
 	cd frontend && npm run dev
 
 dev:
 	@echo "Starting backend and frontend..."
-	python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 & cd frontend && npm run dev
+	python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 & cd frontend && npm run dev
 
 docker-up:
 	docker-compose up --build

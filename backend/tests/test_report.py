@@ -4,9 +4,9 @@ import uuid
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from backend.app.database import Base
-from backend.app.models import Assessment, Correction, Document
-from backend.app.services.report_service import (
+from app.database import Base
+from app.models import Assessment, Correction, Document
+from app.services.report_service import (
     generate_batch_report,
     generate_single_document_report,
 )

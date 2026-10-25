@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import pytest
-from backend.app.services.presets import (
+from app.services.presets import (
     BUILTIN_PRESETS,
     apply_preset_to_config,
     detect_document_preset,

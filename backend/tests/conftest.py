@@ -1,7 +1,14 @@
+import sys
+from pathlib import Path
+
+_backend_dir = str(Path(__file__).resolve().parent.parent)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 import cv2
 import numpy as np
 import pytest
-from backend.app.config import DEFAULT_CONFIG
+from app.config import DEFAULT_CONFIG
 
 
 def create_base_document(width=800, height=1100) -> np.ndarray:

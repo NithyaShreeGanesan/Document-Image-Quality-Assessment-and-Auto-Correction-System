@@ -4,15 +4,18 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Add workspace to sys.path so backend imports work directly
-WORKSPACE_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(WORKSPACE_DIR))
+BACKEND_DIR = Path(__file__).resolve().parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+WORKSPACE_DIR = BACKEND_DIR.parent
+if str(WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_DIR))
 
-from backend.app.config import load_config
-from backend.app.services.assessment import assess_document_image
-from backend.app.services.correction import auto_correct_document
-from backend.app.services.ocr_service import evaluate_ocr, get_tesseract_status
-from backend.app.services.storage import extract_pages_from_pdf, load_image_from_file
+from app.config import load_config
+from app.services.assessment import assess_document_image
+from app.services.correction import auto_correct_document
+from app.services.ocr_service import evaluate_ocr, get_tesseract_status
+from app.services.storage import extract_pages_from_pdf, load_image_from_file
 
 SAMPLE_DATA_DIR = WORKSPACE_DIR / "sample_data"
 CSV_EXPORT_PATH = WORKSPACE_DIR / "ocr_benchmark_results.csv"

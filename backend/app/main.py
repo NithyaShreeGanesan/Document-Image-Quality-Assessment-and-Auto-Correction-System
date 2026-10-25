@@ -4,10 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.alerts import router as alerts_router
-from backend.app.api.analytics import router as analytics_router
-from backend.app.api.documents import router as documents_router
-from backend.app.api.settings import router as settings_router
-from backend.app.database import Base, engine, run_sqlite_migrations
+from app.api.analytics import router as analytics_router
+from app.api.documents import router as documents_router
+from app.api.settings import router as settings_router
+from app.database import Base, engine, run_sqlite_migrations
 
 # Ensure database tables exist and apply any column migrations
 Base.metadata.create_all(bind=engine)

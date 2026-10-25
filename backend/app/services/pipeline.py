@@ -6,13 +6,13 @@ from typing import Any, Dict, List, Optional
 import cv2
 from sqlalchemy.orm import Session
 
-from backend.app.config import load_config
-from backend.app.models import Alert, Assessment, Correction, Document
-from backend.app.services.assessment import assess_document_image
-from backend.app.services.correction import auto_correct_document
-from backend.app.services.ocr_service import evaluate_ocr
-from backend.app.services.presets import apply_preset_to_config, detect_document_preset
-from backend.app.services.storage import (
+from app.config import load_config
+from app.models import Alert, Assessment, Correction, Document
+from app.services.assessment import assess_document_image
+from app.services.correction import auto_correct_document
+from app.services.ocr_service import evaluate_ocr
+from app.services.presets import apply_preset_to_config, detect_document_preset
+from app.services.storage import (
     create_corrected_pdf_from_images,
     extract_pages_from_pdf,
     load_image_from_file,

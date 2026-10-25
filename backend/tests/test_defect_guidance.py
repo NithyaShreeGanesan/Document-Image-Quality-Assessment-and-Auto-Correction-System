@@ -1,14 +1,14 @@
 import cv2
 import numpy as np
 import pytest
-from backend.app.services.assessment import (
+from app.services.assessment import (
     assess_document_image,
     compute_cutoff_metric,
     compute_glare_metric,
     compute_orientation_metric,
     generate_rescan_guidance,
 )
-from backend.app.services.correction import auto_orient_document
+from app.services.correction import auto_orient_document
 
 
 @pytest.fixture

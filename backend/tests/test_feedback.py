@@ -3,13 +3,13 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.app.database import Base
-from backend.app.models import Document, Assessment, Correction, Feedback, Setting
-from backend.app.services.suggestions import generate_setting_suggestions, apply_suggestion
-from backend.app.api.documents import submit_document_feedback, get_document_feedback, _doc_to_detail
-from backend.app.api.analytics import get_feedback_analytics
-from backend.app.schemas import FeedbackSubmitRequest, ApplySuggestionRequest
-from backend.app.api.settings import apply_adaptive_suggestion, get_adaptive_suggestions
+from app.database import Base
+from app.models import Document, Assessment, Correction, Feedback, Setting
+from app.services.suggestions import generate_setting_suggestions, apply_suggestion
+from app.api.documents import submit_document_feedback, get_document_feedback, _doc_to_detail
+from app.api.analytics import get_feedback_analytics
+from app.schemas import FeedbackSubmitRequest, ApplySuggestionRequest
+from app.api.settings import apply_adaptive_suggestion, get_adaptive_suggestions
 
 
 @pytest.fixture

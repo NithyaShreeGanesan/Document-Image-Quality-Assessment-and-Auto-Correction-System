@@ -4,8 +4,8 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from backend.app.models import Alert, Document
-from backend.app.schemas import AlertResponse
+from app.models import Alert, Document
+from app.schemas import AlertResponse
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 

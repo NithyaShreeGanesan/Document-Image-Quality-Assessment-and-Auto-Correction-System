@@ -8,9 +8,9 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.models import Alert, Assessment, Correction, Document, Feedback
-from backend.app.schemas import (
+from app.database import get_db
+from app.models import Alert, Assessment, Correction, Document, Feedback
+from app.schemas import (
     AssessmentResponse,
     CorrectionItem,
     DefectItem,
@@ -22,8 +22,8 @@ from backend.app.schemas import (
     PerStepScoreItem,
     ReprocessRequest,
 )
-from backend.app.services.pipeline import process_single_image, process_upload_file
-from backend.app.services.storage import create_zip_archive
+from app.services.pipeline import process_single_image, process_upload_file
+from app.services.storage import create_zip_archive
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -421,7 +421,7 @@ def download_batch_zip(batch_id: str, db: Session = Depends(get_db)):
 @router.get("/{doc_id}/report")
 def download_document_report(doc_id: str, db: Session = Depends(get_db)):
     """Generates and downloads a comprehensive PDF quality audit report for a single document."""
-    from backend.app.services.report_service import generate_single_document_report
+    from app.services.report_service import generate_single_document_report
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -437,7 +437,7 @@ def download_document_report(doc_id: str, db: Session = Depends(get_db)):
 @router.get("/batch/{batch_id}/report")
 def download_batch_report(batch_id: str, db: Session = Depends(get_db)):
     """Generates and downloads a summary PDF audit report for an entire batch of documents."""
-    from backend.app.services.report_service import generate_batch_report
+    from app.services.report_service import generate_batch_report
     docs = db.query(Document).filter(Document.batch_id == batch_id).all()
     if not docs:
         raise HTTPException(status_code=404, detail="No documents found for this batch")

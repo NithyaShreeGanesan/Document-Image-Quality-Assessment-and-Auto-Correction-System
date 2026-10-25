@@ -21,7 +21,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 from sqlalchemy.orm import Session
-from backend.app.models import Assessment, Correction, Document
+from app.models import Assessment, Correction, Document
 
 
 from reportlab.pdfgen import canvas

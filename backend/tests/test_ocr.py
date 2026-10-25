@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import pytest
-from backend.app.services.ocr_service import evaluate_ocr, get_tesseract_status
+from app.services.ocr_service import evaluate_ocr, get_tesseract_status
 
 
 def test_ocr_evaluation_on_synthetic_document(clean_doc_img):
