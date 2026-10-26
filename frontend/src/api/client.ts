@@ -12,11 +12,72 @@ import {
   SettingsData,
   UserSatisfactionData,
 } from '../types';
+import { User, TokenResponse } from '../types/auth';
+
+const getBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  // Default to relative /api (works with Vite dev proxy and Netlify _redirects)
+  return '/api';
+};
+
+export const API_BASE_URL = getBaseUrl();
+
+/**
+ * Resolves API/asset URLs so that image and file paths resolve properly
+ * whether using direct backend URL or local/Netlify proxy.
+ */
+export const resolveApiUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) {
+    return url.startsWith('/') ? url : `/${url}`;
+  }
+
+  const cleanBase = envUrl.trim().replace(/\/+$/, '');
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+  if (cleanBase.endsWith('/api') && cleanUrl.startsWith('/api/')) {
+    return `${cleanBase.slice(0, -4)}${cleanUrl}`;
+  }
+  return `${cleanBase}${cleanUrl}`;
+};
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   timeout: 60000,
 });
+
+// Attach Authorization header if token exists in localStorage
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('docuquality_token');
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor: on 401 Unauthorized, clear token and redirect to /signin
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('docuquality_token');
+      const currentPath = window.location.pathname;
+      if (!currentPath.startsWith('/signin') && !currentPath.startsWith('/signup') && currentPath !== '/') {
+        window.location.href = '/signin';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 
 export const documentApi = {
@@ -70,19 +131,19 @@ export const documentApi = {
   },
 
   getDownloadUrl: (id: string, variant: 'corrected' | 'original' | 'zip' = 'corrected') => {
-    return `/api/documents/${id}/download?variant=${variant}`;
+    return resolveApiUrl(`/api/documents/${id}/download?variant=${variant}`);
   },
 
   getReportUrl: (id: string) => {
-    return `/api/documents/${id}/report`;
+    return resolveApiUrl(`/api/documents/${id}/report`);
   },
 
   getBatchZipUrl: (batchId: string) => {
-    return `/api/documents/batch/${batchId}/zip`;
+    return resolveApiUrl(`/api/documents/batch/${batchId}/zip`);
   },
 
   getBatchReportUrl: (batchId: string) => {
-    return `/api/documents/batch/${batchId}/report`;
+    return resolveApiUrl(`/api/documents/batch/${batchId}/report`);
   },
 
 
@@ -190,5 +251,28 @@ export const settingsApi = {
   },
 };
 
+export const healthApi = {
+  check: async (): Promise<{ status: string; service?: string }> => {
+    const response = await api.get<{ status: string; service?: string }>('/health');
+    return response.data;
+  },
+};
+
+export const authApi = {
+  login: async (credentials: { email: string; password: string }): Promise<TokenResponse> => {
+    const response = await api.post<TokenResponse>('/auth/login', credentials);
+    return response.data;
+  },
+
+  register: async (data: { full_name: string; email: string; password: string }): Promise<TokenResponse> => {
+    const response = await api.post<TokenResponse>('/auth/register', data);
+    return response.data;
+  },
+
+  getMe: async (): Promise<User> => {
+    const response = await api.get<User>('/auth/me');
+    return response.data;
+  },
+};
 
 export default api;

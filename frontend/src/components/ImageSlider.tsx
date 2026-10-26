@@ -10,6 +10,7 @@ import {
   Layers,
   SplitSquareVertical,
 } from 'lucide-react';
+import { resolveApiUrl } from '../api/client';
 
 interface ImageSliderProps {
   originalUrl: string;
@@ -37,8 +38,9 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // If no corrected URL yet, show original
-  const effectiveCorrectedUrl = correctedUrl || originalUrl;
+  // Resolve URLs to handle both proxy and absolute backend URLs
+  const effectiveOriginalUrl = resolveApiUrl(originalUrl);
+  const effectiveCorrectedUrl = resolveApiUrl(correctedUrl || originalUrl);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (viewMode === 'slider') {
@@ -206,7 +208,7 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({
               style={{ width: `${sliderPos}%` }}
             >
               <img
-                src={originalUrl}
+                src={effectiveOriginalUrl}
                 alt={`${altText} - Original`}
                 style={{
                   width: containerRef.current?.clientWidth || '100%',
@@ -275,7 +277,7 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({
                 )}
               </div>
               <img
-                src={originalUrl}
+                src={effectiveOriginalUrl}
                 alt="Original Document"
                 className="max-h-full max-w-full object-contain rounded-lg"
               />

@@ -1,0 +1,5 @@
+# API proxy redirect to Render backend
+/api/*  https://document-image-quality-assessment-and.onrender.com/api/:splat  200!
+
+# SPA client-side routing fallback
+/*  /index.html  200

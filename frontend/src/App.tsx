@@ -1,156 +1,156 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import { Navbar } from './components/Navbar';
-import { AlertDrawer } from './components/AlertDrawer';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProtectedRoute, PublicOnlyRoute } from './components/ProtectedRoute';
+import { AppLayout } from './components/AppLayout';
+
+// Pages
+import { LandingPage } from './pages/LandingPage';
+import { SignInPage } from './pages/SignInPage';
+import { SignUpPage } from './pages/SignUpPage';
 import { UploadPage } from './pages/UploadPage';
 import { ResultPage } from './pages/ResultPage';
 import { BatchResultsPage } from './pages/BatchResultsPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { alertsApi } from './api/client';
-import { AlertItem } from './types';
-import { Sparkles, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-export const AppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('upload');
-  const [activeDocId, setActiveDocId] = useState<string | null>(null);
-  const [activeBatchId, setActiveBatchId] = useState<string | undefined>(undefined);
-  const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [isAlertDrawerOpen, setIsAlertDrawerOpen] = useState<boolean>(false);
+// Wrapper for "/" that redirects authenticated users to /app/upload
+const LandingPageRoute: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Poll alerts
-  const fetchAlerts = async () => {
-    try {
-      const data = await alertsApi.list();
-      setAlerts(data);
-    } catch (err) {
-      // ignore
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    fetchAlerts();
-    const interval = setInterval(fetchAlerts, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  if (isAuthenticated) {
+    return <Navigate to="/app/upload" replace />;
+  }
 
-  const unreadAlertCount = alerts.filter((a) => !a.read).length;
+  return <LandingPage />;
+};
 
-  const handleMarkAlertRead = async (id: number) => {
-    try {
-      await alertsApi.markRead(id);
-      setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, read: true } : a)));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleMarkAllAlertsRead = async () => {
-    try {
-      await alertsApi.markAllRead();
-      setAlerts((prev) => prev.map((a) => ({ ...a, read: true })));
-    } catch (err) {
-      console.error(err);
-    }
-  };
+// Wrapper for UploadPage with routing integration
+const UploadPageRoute: React.FC = () => {
+  const navigate = useNavigate();
 
   const handleUploadSuccess = (docId: string, isBatch: boolean, batchId?: string) => {
-    fetchAlerts();
     if (isBatch && batchId) {
-      setActiveBatchId(batchId);
-      setActiveTab('batch');
+      navigate(`/app/batch?batchId=${batchId}`);
     } else {
-      setActiveDocId(docId);
-      setActiveTab('result');
+      navigate(`/app/results/${docId}`);
     }
   };
 
-  const handleSelectDocument = (docId: string) => {
-    setActiveDocId(docId);
-    setActiveTab('result');
-  };
+  return <UploadPage onUploadSuccess={handleUploadSuccess} />;
+};
 
-  const handleViewBatch = (batchId: string) => {
-    setActiveBatchId(batchId);
-    setActiveTab('batch');
-  };
+// Wrapper for BatchResultsPage with search params
+const BatchResultsPageRoute: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const batchId = searchParams.get('batchId') || undefined;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          if (tab !== 'result') {
-            setActiveDocId(null);
-          }
-        }}
-        unreadAlertCount={unreadAlertCount}
-        onOpenAlerts={() => setIsAlertDrawerOpen(true)}
-      />
+    <BatchResultsPage
+      batchId={batchId}
+      onSelectDocument={(docId) => navigate(`/app/results/${docId}`)}
+      onGoToUpload={() => navigate('/app/upload')}
+    />
+  );
+};
 
-      <main className="flex-1 pb-12">
-        {activeTab === 'upload' && (
-          <UploadPage onUploadSuccess={handleUploadSuccess} />
-        )}
+// Wrapper for HistoryPage with document selection
+const HistoryPageRoute: React.FC = () => {
+  const navigate = useNavigate();
 
-        {activeTab === 'result' && activeDocId && (
-          <ResultPage
-            documentId={activeDocId}
-            onBack={() => setActiveTab('upload')}
-            onViewBatch={handleViewBatch}
-          />
-        )}
+  return (
+    <HistoryPage onSelectDocument={(docId) => navigate(`/app/results/${docId}`)} />
+  );
+};
 
-        {activeTab === 'batch' && (
-          <BatchResultsPage
-            batchId={activeBatchId}
-            onSelectDocument={handleSelectDocument}
-            onGoToUpload={() => setActiveTab('upload')}
-          />
-        )}
+// Wrapper for ResultPage with URL param
+const ResultPageRoute: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
-        {activeTab === 'history' && (
-          <HistoryPage onSelectDocument={handleSelectDocument} />
-        )}
+  if (!id) {
+    return <Navigate to="/app/upload" replace />;
+  }
 
-        {activeTab === 'analytics' && <AnalyticsPage />}
-
-        {activeTab === 'settings' && <SettingsPage />}
-      </main>
-
-      {/* Alert Drawer */}
-      <AlertDrawer
-        isOpen={isAlertDrawerOpen}
-        onClose={() => setIsAlertDrawerOpen(false)}
-        alerts={alerts}
-        onMarkRead={handleMarkAlertRead}
-        onMarkAllRead={handleMarkAllAlertsRead}
-        onSelectDocument={handleSelectDocument}
-      />
-
-      {/* Global Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900/50">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span className="font-semibold text-slate-700 dark:text-slate-300">DocuQuality</span>
-            <span>— Document Image Quality Assessment & Auto-Correction</span>
-          </div>
-          <div>
-            Built with FastAPI, OpenCV, scikit-image, PyMuPDF & React
-          </div>
-        </div>
-      </footer>
-    </div>
+  return (
+    <ResultPage
+      documentId={id}
+      onBack={() => navigate('/app/upload')}
+      onViewBatch={(batchId) => navigate(`/app/batch?batchId=${batchId}`)}
+    />
   );
 };
 
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPageRoute />} />
+            <Route
+              path="/signin"
+              element={
+                <PublicOnlyRoute>
+                  <SignInPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                <PublicOnlyRoute>
+                  <SignUpPage />
+                </PublicOnlyRoute>
+              }
+            />
+
+            {/* Protected App Routes */}
+            <Route
+              path="/app"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/app/upload" replace />} />
+              <Route path="upload" element={<UploadPageRoute />} />
+              <Route path="batch" element={<BatchResultsPageRoute />} />
+              <Route path="history" element={<HistoryPageRoute />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="results/:id" element={<ResultPageRoute />} />
+              <Route path="result/:id" element={<ResultPageRoute />} />
+              <Route path="result" element={<Navigate to="/app/upload" replace />} />
+            </Route>
+
+            {/* Catch-all Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DocumentSummary } from '../types';
-import { documentApi } from '../api/client';
+import { documentApi, resolveApiUrl } from '../api/client';
 import {
   History,
   Search,
@@ -203,7 +203,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ onSelectDocument }) =>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={doc.thumbnail_url}
+                            src={resolveApiUrl(doc.thumbnail_url)}
                             alt={doc.filename}
                             className="w-10 h-10 object-cover rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-900 shrink-0"
                           />

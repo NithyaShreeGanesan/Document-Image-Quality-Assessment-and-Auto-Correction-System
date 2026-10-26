@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DocumentSummary } from '../types';
-import { documentApi } from '../api/client';
+import { documentApi, resolveApiUrl } from '../api/client';
 import {
   Layers,
   Download,
@@ -216,7 +216,7 @@ export const BatchResultsPage: React.FC<BatchResultsPageProps> = ({
                   {/* Thumbnail & Score Header */}
                   <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden bg-slate-950 mb-3 border border-slate-200 dark:border-slate-800">
                     <img
-                      src={doc.thumbnail_url}
+                      src={resolveApiUrl(doc.thumbnail_url)}
                       alt={doc.filename}
                       className="w-full h-full object-contain group-hover:scale-102 transition-transform duration-300"
                     />

@@ -116,7 +116,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({ onUploadSuccess }) => {
           Automated Computer Vision Engine
         </div>
         <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-slate-900 dark:text-white tracking-tight">
-          Assess & Auto-Correct Document Quality
+          Document Image Quality Assessment and Auto-Correction System
         </h1>
         <p className="max-w-2xl mx-auto text-sm sm:text-base text-slate-600 dark:text-slate-400">
           Upload mobile captures or flatbed scans to diagnose blur, skew, shadows, and noise.
