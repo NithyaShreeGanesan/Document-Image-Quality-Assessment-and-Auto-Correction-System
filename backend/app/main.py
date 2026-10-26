@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.alerts import router as alerts_router
 from app.api.analytics import router as analytics_router
+from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.api.settings import router as settings_router
 from app.database import Base, engine, run_sqlite_migrations
@@ -17,7 +18,7 @@ import copy
 from fastapi.openapi.utils import get_openapi
 
 app = FastAPI(
-    title="DocuQuality: Document Image Quality Assessment & Auto-Correction API",
+    title="DocuQuality: Document Image Quality Assessment and Auto-Correction System API",
     description="Automated scoring and targeted auto-correction engine for document scans and mobile captures.",
     version="1.0.0",
     docs_url="/docs",
@@ -130,16 +131,27 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 # CORS setup
-origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000").split(",")
+default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://docuquality.netlify.app",
+]
+env_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+allowed_origins = list(dict.fromkeys(default_origins + env_origins))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all for convenient development
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.netlify\.app|https://.*\.onrender\.com|http://localhost:\d+|http://127\.0\.0\.1:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include API routes
+app.include_router(auth_router)
 app.include_router(documents_router)
 app.include_router(analytics_router)
 app.include_router(alerts_router)
@@ -154,6 +166,11 @@ def root():
         "status": "operational",
         "docs": "/docs",
     }
+
+
+@app.get("/health")
+def health_check_root():
+    return {"status": "ok", "service": "docuquality-backend"}
 
 
 @app.get("/api/health")

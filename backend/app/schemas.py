@@ -1,6 +1,6 @@
 import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DefectItem(BaseModel):
@@ -228,4 +228,31 @@ class ApplySuggestionRequest(BaseModel):
     preset_id: Optional[str] = None
 
 
+class UserCreate(BaseModel):
+    full_name: str
+    email: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    full_name: str
+    email: str
+    created_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
 DocumentDetailResponse.model_rebuild()
+

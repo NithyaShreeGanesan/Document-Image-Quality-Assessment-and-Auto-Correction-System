@@ -24,6 +24,7 @@ def run_sqlite_migrations(target_engine):
             existing_cols = {row[1] for row in result}
 
             new_columns = [
+                ("user_id", "VARCHAR(36)"),
                 ("preset", "VARCHAR(50) DEFAULT 'general'"),
                 ("ocr_word_count_before", "INTEGER DEFAULT 0"),
                 ("ocr_word_count_after", "INTEGER DEFAULT 0"),

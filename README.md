@@ -1,4 +1,4 @@
-# DocuQuality: Document Image Quality Assessment & Auto-Correction System
+# DocuQuality: Document Image Quality Assessment and Auto-Correction System
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com)

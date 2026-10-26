@@ -79,7 +79,7 @@ def _create_thumbnail_image(img_path: str, max_w: float = 2.2 * inch, max_h: flo
 
 def generate_single_document_report(doc: Document, db: Session) -> io.BytesIO:
     """
-    Builds a professional, comprehensive Quality Assessment & Auto-Correction PDF Report.
+    Builds a professional, comprehensive Document Image Quality Assessment and Auto-Correction System PDF Report.
     """
     buffer = io.BytesIO()
     doc_template = SimpleDocTemplate(
@@ -151,7 +151,7 @@ def generate_single_document_report(doc: Document, db: Session) -> io.BytesIO:
     # 1. Header Banner
     header_data = [
         [
-            Paragraph("<b>DocuQuality</b> • Document Quality Assessment & Restoration", title_style),
+            Paragraph("<b>DocuQuality</b> • Document Image Quality Assessment and Auto-Correction System", title_style),
             Paragraph(f"<b>Report ID:</b> {doc.id[:8]}<br/><b>Date:</b> {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", subtitle_style),
         ]
     ]

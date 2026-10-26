@@ -4,10 +4,23 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True, index=True)
+    full_name = Column(String(100), nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    documents = relationship("Document", back_populates="user")
+
+
 class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     filename = Column(String(255), nullable=False)
     file_type = Column(String(20), nullable=False)
     page_no = Column(Integer, default=1)
@@ -27,6 +40,7 @@ class Document(Base):
     per_step_scores_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    user = relationship("User", back_populates="documents")
     assessments = relationship("Assessment", back_populates="document", cascade="all, delete-orphan")
     corrections = relationship("Correction", back_populates="document", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="document", cascade="all, delete-orphan")

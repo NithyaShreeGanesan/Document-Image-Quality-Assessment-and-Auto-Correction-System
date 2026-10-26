@@ -8,8 +8,9 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
+from app.api.auth import get_optional_current_user
 from app.database import get_db
-from app.models import Alert, Assessment, Correction, Document, Feedback
+from app.models import Alert, Assessment, Correction, Document, Feedback, User
 from app.schemas import (
     AssessmentResponse,
     CorrectionItem,
@@ -185,6 +186,7 @@ async def upload_documents(
     files: List[UploadFile] = File(..., description="Document files to upload (single or batch up to 50)"),
     preset: Optional[str] = Form("auto"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -196,6 +198,7 @@ async def upload_documents(
 
     batch_id = str(uuid.uuid4())
     created_doc_ids: List[str] = []
+    user_id = current_user.id if current_user else None
 
     for upload_file in files:
         filename = upload_file.filename or "uploaded_document.png"
@@ -216,7 +219,7 @@ async def upload_documents(
         # Process file synchronously or via pipeline
         # Processing synchronously ensures immediate readiness; for batches, it processes each sequentially
         try:
-            ids = process_upload_file(db, content, filename, batch_id=batch_id, preset=preset)
+            ids = process_upload_file(db, content, filename, batch_id=batch_id, preset=preset, user_id=user_id)
             created_doc_ids.extend(ids)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to process '{filename}': {str(e)}")
@@ -282,10 +285,14 @@ def list_documents(
     max_score: Optional[float] = None,
     search: Optional[str] = None,
     batch_id: Optional[str] = None,
+    current_user: Optional[User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     """Lists documents with pagination, status filtering, score range, and search."""
     query = db.query(Document)
+
+    if current_user:
+        query = query.filter(Document.user_id == current_user.id)
 
     if batch_id:
         query = query.filter(Document.batch_id == batch_id)

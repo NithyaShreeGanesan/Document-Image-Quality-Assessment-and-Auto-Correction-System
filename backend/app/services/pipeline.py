@@ -31,6 +31,7 @@ def process_single_image(
     batch_id: Optional[str] = None,
     custom_options: Optional[Dict[str, Any]] = None,
     preset: Optional[str] = "auto",
+    user_id: Optional[str] = None,
 ) -> Document:
     """
     Executes full quality pipeline on a single image file:
@@ -42,6 +43,7 @@ def process_single_image(
     if not doc:
         doc = Document(
             id=doc_id,
+            user_id=user_id,
             filename=filename,
             file_type=file_type,
             page_no=page_no,
@@ -223,6 +225,7 @@ def process_upload_file(
     filename: str,
     batch_id: Optional[str] = None,
     preset: Optional[str] = "auto",
+    user_id: Optional[str] = None,
 ) -> List[str]:
     """
     Handles uploaded file (single image or multi-page PDF).
@@ -251,6 +254,7 @@ def process_upload_file(
                 page_no=page_no,
                 batch_id=common_batch,
                 preset=preset,
+                user_id=user_id,
             )
             doc_ids.append(page_doc_id)
             if doc.corrected_path:
@@ -274,6 +278,7 @@ def process_upload_file(
             page_no=1,
             batch_id=batch_id,
             preset=preset,
+            user_id=user_id,
         )
         doc_ids.append(doc_id)
 

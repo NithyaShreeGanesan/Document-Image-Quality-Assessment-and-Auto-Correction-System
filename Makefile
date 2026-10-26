@@ -1,7 +1,7 @@
 .PHONY: help install sample-data test dev-backend dev-frontend dev docker-up
 
 help:
-	@echo "DocuQuality - Document Image Quality Assessment & Auto-Correction"
+	@echo "DocuQuality - Document Image Quality Assessment and Auto-Correction System"
 	@echo "Available commands:"
 	@echo "  make install       Install both backend and frontend dependencies"
 	@echo "  make sample-data   Generate degraded synthetic documents in sample_data/"
